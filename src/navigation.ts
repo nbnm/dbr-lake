@@ -2,6 +2,8 @@ import type { Attempt, LakeObject } from "./types";
 import { expandVessels, externalAirportName, isExport } from "./vessels";
 
 export const BERTH_SPACING = 1.8;
+// Table identities share hidden traffic ports on a schema-level pier.
+export const SCHEMA_PORTS = 3;
 export const PORT_ROW_SPACING = 1.9;
 export const AIR_LEVELS = 6;
 export const cruiseHeight = (lane: number) => 3.8 + (lane % AIR_LEVELS) * 0.85;
@@ -43,7 +45,10 @@ export function buildNavigation(
     tables
       .sort((a, b) => a.id.localeCompare(b.id))
       .forEach((o, i) =>
-        physicalPorts.set(o.id, `${group}/${i % Math.min(6, tables.length)}`),
+        physicalPorts.set(
+          o.id,
+          `${group}/${i % Math.min(SCHEMA_PORTS, tables.length)}`,
+        ),
       );
   }
   const unique = new Map(attempts.map((a) => [a.id, a]));

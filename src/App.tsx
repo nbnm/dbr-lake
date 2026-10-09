@@ -27,7 +27,15 @@ import {
 } from "lucide-react";
 import type { Replay, Selection, StatusFilter } from "./types";
 import type { CameraAction } from "./LakeScene";
-import { duration, elapsed, isOverdue, reconstruct, timestamp } from "./state";
+import {
+  duration,
+  elapsed,
+  isOverdue,
+  isSimulated,
+  replayLabel,
+  reconstruct,
+  timestamp,
+} from "./state";
 import Inspector, { StatusBadge } from "./Inspector";
 import { buildReplayLakeLayout, catalogId, schemaId } from "./layout";
 import Configuration from "./Configuration";
@@ -92,7 +100,7 @@ export default function App() {
                 data.checkpoint.range.start,
                 Math.min(data.checkpoint.range.end, requested),
               )
-            : data.checkpoint.mode === "demo"
+            : data.checkpoint.mode === "demo" || data.checkpoint.simulation
               ? data.checkpoint.range.start + 600_000
               : data.checkpoint.range.start;
         setAt(clock.current);
@@ -266,7 +274,7 @@ export default function App() {
     setWorkspace("all");
     setRegion("all");
     clock.current =
-      data.checkpoint.mode === "demo"
+      data.checkpoint.mode === "demo" || data.checkpoint.simulation
         ? data.checkpoint.range.start + 600_000
         : data.checkpoint.range.start;
     setAt(clock.current);
@@ -418,9 +426,7 @@ export default function App() {
             </button>
             <span className="demo-pill">
               <i />
-              {scene?.mode === "replay"
-                ? "Historical replay"
-                : "Simulated replay"}
+              {scene ? replayLabel(scene) : "Loading replay"}
             </span>
             <div className="avatar">OP</div>
           </div>
@@ -608,7 +614,6 @@ export default function App() {
                           <span title="Only schemas used in this capture's lineage or routes appear on the lake. Filters preserve positions.">
                             {layout?.docks.length ?? 0} catalogs ·{" "}
                             {layout?.piers.length ?? 0} schemas ·{" "}
-                            {layout?.objects.length ?? 0} tables ·{" "}
                             {layout?.airports.length ?? 0} airports
                           </span>
                           <small>Drag to orbit · right-drag to pan</small>
@@ -790,6 +795,13 @@ export default function App() {
                                   </td>
                                   <td>
                                     <StatusBadge attempt={a} at={at} />
+                                    {scene.simulation && (
+                                      <span className="simulation-tag">
+                                        {isSimulated(a, scene.mode)
+                                          ? "Simulated"
+                                          : "Real"}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="tabular">
                                     {duration(elapsed(a, at))}
@@ -848,9 +860,7 @@ export default function App() {
                         <div>
                           <span className="capture-label">
                             <i />
-                            {scene.mode === "demo"
-                              ? "SIMULATED REPLAY"
-                              : "HISTORICAL REPLAY"}
+                            {replayLabel(scene).toUpperCase()}
                           </span>
                           <span>
                             {new Date(scene.range.start).toLocaleDateString(
@@ -1040,9 +1050,11 @@ export default function App() {
                 Lake simulation <span>v0.1</span>
               </span>
               <span>
-                {scene.mode === "demo"
-                  ? "Simulated metadata"
-                  : "Imported history · replay only"}
+                {scene.simulation
+                  ? "Real history + simulated runs"
+                  : scene.mode === "demo"
+                    ? "Simulated metadata"
+                    : "Imported history · replay only"}
               </span>
               <span>Estimated motion, observed status</span>
             </footer>

@@ -138,6 +138,12 @@ class ReplayRepository:
             row = self.db.execute('SELECT payload FROM captures WHERE id=?', (ident,)).fetchone()
             return json.loads(row[0]) if row else None
 
+    def activate_capture(self, ident):
+        with self.lock, self.db:
+            if not self.db.execute('SELECT 1 FROM captures WHERE id=?', (ident,)).fetchone():
+                raise ValueError('Replay capture not found.')
+            self.db.execute('INSERT OR REPLACE INTO active_capture VALUES (1,?)', (ident,))
+
     def close(self):
         with self.lock:
             self.tokens.clear()

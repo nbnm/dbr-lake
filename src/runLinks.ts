@@ -1,5 +1,6 @@
 import type { Attempt, Snapshot } from "./types";
 import { flightTableIds } from "./vessels";
+import { isSimulated } from "./state";
 
 export interface RunLink {
   href: string;
@@ -14,7 +15,8 @@ export function jobRunLink(
   destinationId?: string,
   captureId?: string,
 ): RunLink | null {
-  if (a.native_url) {
+  const simulated = isSimulated(a, mode === "demo" ? "demo" : "replay");
+  if (a.native_url && a.provenance !== "workspace_simulation") {
     try {
       if (new URL(a.native_url).protocol === "https:")
         return {
@@ -26,7 +28,7 @@ export function jobRunLink(
       /* Missing or invalid source URL: use the explicit demo view below. */
     }
   }
-  if (mode !== "demo") return null;
+  if (!simulated) return null;
   const params = new URLSearchParams({
     "job-run": a.run_id,
     job: a.job_id,
@@ -38,7 +40,14 @@ export function jobRunLink(
   if (captureId) params.set("capture", captureId);
   if (destinationId && flightTableIds(a).includes(destinationId))
     params.set("destination", destinationId);
-  return { href: `/?${params}`, label: "Open demo job run", external: false };
+  return {
+    href: `/?${params}`,
+    label:
+      a.provenance === "workspace_simulation"
+        ? "Open simulated job run"
+        : "Open demo job run",
+    external: false,
+  };
 }
 
 export function lakeAttemptLink(

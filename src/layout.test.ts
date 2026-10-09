@@ -147,11 +147,11 @@ describe("inventory-driven harbor", () => {
     expect(layout.docks).toHaveLength(2);
     expect(schemaId(table)).not.toBe(schemaId(regional));
   });
-  it("sizes dock modules from table count and retains the complete dense-schema inventory", () => {
+  it("keeps schema piers the same size regardless of table density while retaining inventory", () => {
     const one = buildLakeLayout(inventory(1, 1));
     const many = buildLakeLayout(inventory(1, 100));
-    expect(many.docks[0].width).toBeGreaterThan(one.docks[0].width);
-    expect(many.piers[0].slots).toBe(6);
+    expect(many.docks[0].width).toBe(one.docks[0].width);
+    expect(many.piers[0].slots).toBe(3);
     expect(many.objects).toHaveLength(100);
     expect(new Set(many.objects.map((o) => o.id)).size).toBe(100);
   });

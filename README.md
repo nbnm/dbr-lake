@@ -1,6 +1,6 @@
 # SimLake
 
-SimLake by T1A is a local lake visualization for replaying the previous 24 hours of Databricks job history. Catalogs are docks, schemas are piers, and tables are berths. Paper planes carry external ingestion to each observed destination and exports from tables to external airports; paper ships follow table transformations. Unresolved or multi-input routes appear as neutral paper ships holding their positions.
+SimLake by T1A is a local lake visualization for replaying the previous 24 hours of Databricks job history. Catalogs are docks and schemas are piers. Table identities drive vessel routes and remain available in the inspector; individual tables are not drawn or captioned on the lake. Paper planes carry external ingestion to schema piers and exports to external airports; paper ships follow table transformations between piers. Unresolved or multi-input routes appear as neutral paper ships holding their positions.
 
 The lake is the main view. Playback starts at **60×: one minute of history per second of animation**. Navigation, activity, the timeline, and ordinary captions are hidden initially. Use **Replay** to reveal the minute-level timeline and **View options → Show captions** for labels. Click a vessel or dock to open its details. LakeSentry, 8FDE, PondPilot, Antares, Alchemist, and SecondStack keep matching linked plaques visible, with placement that avoids overlapping names. Official logos appear on the Antares plaque, SecondStack sails, a flying Alchemist zeppelin, and a low T1A sign on the foreground shore.
 
@@ -10,9 +10,9 @@ _Recorded from the running app with explicitly simulated metadata and 60× playb
 
 ## What the lake shows
 
-- **Catalog docks → schema piers → table berths.** The lake renders only schemas referenced by lineage or supported routes in the selected 24-hour capture, and their parent catalogs. Unused and empty catalogs/schemas are omitted. Used schemas retain their full table inventory. Lake size follows this visible topology; positions stay stable during filtering and seeking.
+- **Catalog docks → schema piers.** The lake renders only schemas referenced by lineage or supported routes in the selected 24-hour capture, and their parent catalogs. Unused and empty catalogs/schemas are omitted. Every schema has one pier, regardless of table count. Tables appear only in details, with the complete inventory retained. Lake size follows this visible topology; positions stay stable during filtering and seeking.
 - **One plane per landing destination.** A job writing to several tables can have several planes. Each opens the same job-run status and its destination details without inflating execution counts.
-- **Outbound exports.** Pale gold paper planes depart from source table berths and land at external destination airports. Clicking an export reveals its source, destination, status, and job-run link. Imported exports require a single observed table source and one external path destination; mixed or ambiguous routes stay as stationary processing paper ships.
+- **Outbound exports.** Pale gold paper planes depart from source schema piers and land at external destination airports. Clicking an export reveals its source table, destination, status, and job-run link. Imported exports require a single observed table source and one external path destination; mixed or ambiguous routes stay as stationary processing paper ships.
 - **Paper ships.** A single observed table source can drive a transformation route. Missing or ambiguous lineage remains visibly unresolved, with a neutral paper ship holding its position rather than an invented journey.
 - **Fixed 24-hour replay.** Minute-level seeking, event navigation, playback speeds, workspace filters, an accessible activity list, and contextual inspection use a saved capture. No live collection runs in the background.
 - **A natural landscape.** Docks attach to shore; inland airports, forests, crop fields, country roads, reeds, and ripples surround the lake. Reserved corridors and deterministic yielding reduce vessel overlaps.
@@ -22,7 +22,9 @@ React, TypeScript, Three.js, and React Three Fiber render the scene. A Python Fa
 
 A tall Canadian flagpole stands on the shore beside the lighthouse. Its locally bundled [official flag artwork](https://www.canada.ca/en/canadian-heritage/services/flag-canada-description.html) faces the camera and flutters gently, including during paused replay. The flag remains visible with captions and lake mascots hidden; reduced motion keeps it unfurled and still.
 
-Choose **Configure replay → Simulate 80 job runs · 24 hours**, or open [the simulated lake](http://127.0.0.1:8001/?capture=demo-v5). Its fixed day contains 25 ingestion runs (including API landings), 23 outbound exports, 29 table-to-table transfers, and 3 processing runs. Runs start in every hour with staggered, overlapping durations. API arrivals feed transformations, then exports follow their completed inputs. One cost-refresh repair adds a separate execution attempt to its parent run: 80 job runs, 81 attempts. Names follow conventions from the connected workspace: `ADF_…_API_landing`, `Sigma Demo …-tables-deploy`, DEPlatform bronze/silver tables, Antares monthly sales tables, and LakeSentry ledger/metrics tables. Execution data and timestamps are invented; the demo remains labeled as simulated and loading it preserves the saved workspace capture. The default 60× speed plays the full day in 24 minutes.
+Choose **Configure replay → Add 84 simulated runs** after importing a workspace. This preserves every real job run, schema, table identity, lineage record and Databricks link, then adds 28 API landings, 28 table transformations and 28 exports spread across the captured day. Simulated names follow the actual imported job definitions; routes use actual captured table IDs in workspaces that can see them. Simulated routes, times and results are explicitly invented, and their links open local simulation details. The mixed capture is saved separately from its source and becomes the active replay. Repeating the action returns the same capture without duplicating runs, including after restart. Playback needs no additional remote queries.
+
+**Standalone simulated sample · 80 runs** remains available without a connection at [the sample lake](http://127.0.0.1:8001/?capture=demo-v5). It uses invented execution data and workspace-style names, separate from the real workspace overlay. The default 60× speed plays a full day in 24 minutes.
 
 ## Run locally
 
@@ -91,11 +93,12 @@ Imports submit application-owned metadata `SELECT` queries to a SQL warehouse. P
 | Regional system-table and lineage import         | `backend/system_import.py`                                  |
 | Capture assembly and legacy import compatibility | `backend/replay_import.py`                                  |
 | Local-only configuration and replay endpoints    | `backend/app.py`                                            |
+| Real-history overlay with 84 simulated runs       | `backend/simulation.py`                                     |
 | Stable harbor layout and navigation              | `src/layout.ts`, `src/navigation.ts`, `src/traffic.ts`      |
 | Configuration, playback, and inspection          | `src/Configuration.tsx`, `src/App.tsx`, `src/Inspector.tsx` |
 | Paper vessels, landmarks, and ambient swimming   | `src/scene/`, `src/motion.ts`, `src/wildlife.ts`            |
 
-Schema piers show up to six visual table modules while retaining every table in the inspector. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable.
+Schema piers contain shared traffic ports and no table models or table captions. Table count does not affect a pier's width. Every table remains available in the inspector and route metadata. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable; mixed captures label real and simulated runs individually.
 
 ## Validate
 

@@ -5,6 +5,7 @@ import {
   cruiseHeight,
   buildNavigation,
   PORT_ROW_SPACING,
+  SCHEMA_PORTS,
   type NavigationLayout,
 } from "./navigation";
 import {
@@ -170,9 +171,8 @@ export function buildLakeLayout(
     const groups = [...catalog.schemas.entries()].sort(([a], [b]) =>
       a.localeCompare(b),
     );
-    const pierWidths = groups.map(([, g]) =>
-      Math.max(3.8, Math.min(g.objects.length, 6) * BERTH_SPACING + 1.4),
-    );
+    // Schema piers have one visual footprint, regardless of table density.
+    const pierWidths = groups.map(() => 6.4);
     const width = Math.max(
       4.5,
       pierWidths.reduce((sum, w) => sum + w, 0) +
@@ -226,7 +226,7 @@ export function buildLakeLayout(
           center: [center[0] + direction * (px + pw / 2), 0, direction * 0.5],
           direction,
           width: pw,
-          slots: Math.min(g.objects.length, 6),
+          slots: Math.min(g.objects.length, SCHEMA_PORTS),
           objects: [...g.objects].sort((a, b) => a.id.localeCompare(b.id)),
         };
         px += pw + 1.2;

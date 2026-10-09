@@ -2,7 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Database, Plane, Waves } from "lucide-react";
 import type { Snapshot } from "./types";
 import { StatusBadge } from "./Inspector";
-import { duration, elapsed, timestamp } from "./state";
+import {
+  duration,
+  elapsed,
+  isSimulated,
+  replayLabel,
+  timestamp,
+} from "./state";
 import { lakeAttemptLink, resolveJobRun } from "./runLinks";
 import { flightTableIds, isExport, selectedDestination } from "./vessels";
 
@@ -64,9 +70,7 @@ export default function JobRunPage() {
           </strong>
         </a>
         <span className="demo-label">
-          {scene?.mode === "replay"
-            ? "Historical capture"
-            : "Simulated metadata"}
+          {scene ? replayLabel(scene) : "Loading replay"}
         </span>
       </header>
       <main className="run-content">
@@ -102,8 +106,8 @@ export default function JobRunPage() {
             <div className="run-title">
               <div>
                 <div className="eyebrow">
-                  {scene.mode === "demo"
-                    ? "Demo job run"
+                  {isSimulated(a, scene.mode)
+                    ? "Simulated job run"
                     : "Historical job run"}
                 </div>
                 <h1>Run {a.run_id}</h1>
@@ -115,9 +119,11 @@ export default function JobRunPage() {
               </div>
             </div>
             <p className="run-demo-note">
-              {scene.mode === "demo"
-                ? "Simulated execution"
-                : "Imported execution"}
+              {a.provenance === "workspace_simulation"
+                ? "Simulated execution · real captured table identities"
+                : scene.mode === "demo"
+                  ? "Simulated execution"
+                  : "Imported execution"}
               {" · "}Snapshot at {timestamp(scene.server_time)} Toronto time
             </p>
             <dl className="run-summary">
@@ -285,8 +291,9 @@ export default function JobRunPage() {
               </dl>
             </section>
             <footer className="run-footer">
-              {scene.mode === "demo" ? "Demo" : "Historical"} run details ·
-              Databricks runs open the URL supplied by source metadata.
+              {isSimulated(a, scene.mode) ? "Simulated" : "Historical"} run
+              details · Databricks runs open the URL supplied by source
+              metadata.
             </footer>
           </>
         )}

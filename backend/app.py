@@ -136,6 +136,32 @@ def create_app(db_path: str | None = None) -> FastAPI:
         finally:
             request.app.state.import_lock.release()
 
+    @app.post('/api/replay/simulate')
+    def simulate_replay(request: Request, capture: str | None = None):
+        from .simulation import build_simulation
+        if not request.app.state.import_lock.acquire(blocking=False):
+            raise HTTPException(409, 'A replay import or simulation is already running.')
+        try:
+            repo = request.app.state.repository
+            source = repo.capture(capture)
+            if source is None:
+                raise ValueError('Import a real workspace replay before adding simulated runs.')
+            if source['checkpoint'].get('simulation'):
+                source = repo.capture(source['checkpoint']['simulation']['source_capture_id'])
+                if source is None:
+                    raise ValueError('The source workspace capture is unavailable. Import it again.')
+            result = build_simulation(source)
+            existing = repo.capture(result['checkpoint']['capture_id'])
+            if existing:
+                repo.activate_capture(existing['checkpoint']['capture_id'])
+                return existing
+            repo.save_capture(result)
+            return result
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from None
+        finally:
+            request.app.state.import_lock.release()
+
     def at_time(at: int | None) -> int:
         at = fixtures.REFERENCE if at is None else at
         if not fixtures.BASE <= at <= fixtures.END:

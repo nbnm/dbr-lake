@@ -159,7 +159,7 @@ function Vessel({
     wake = useRef<Group>(null);
   const landing = layout.objects.find((o) => o.id === destinationId);
   const landingName = landing
-    ? `${landing.catalog}.${landing.schema_name}.${landing.name}`
+    ? `${landing.catalog}.${landing.schema_name}`
     : destinationId;
   const tint =
     a.phase === "failed"
@@ -330,14 +330,14 @@ function Vessel({
               onClick={() => onSelect(flightSelection(a, destinationId))}
             >
               {a.phase === "failed" ? "Failed · " : ""}
+              {a.provenance === "workspace_simulation" ? "Simulated · " : ""}
               {a.kind === "plane" ? (
                 <>
                   <small>
                     {isExport(a) ? "↗" : "↘"}{" "}
-                    {landing?.schema_name ??
-                      (isExport(a) ? "Export" : "Landing")}
+                    {landing?.catalog ?? (isExport(a) ? "Export" : "Landing")}
                   </small>
-                  {landing?.name ?? "Unresolved"}
+                  {landing?.schema_name ?? "Unresolved schema"}
                 </>
               ) : (
                 a.name

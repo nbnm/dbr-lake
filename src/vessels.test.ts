@@ -260,6 +260,33 @@ describe("landing flights", () => {
 });
 
 describe("job-run navigation", () => {
+  it("keeps simulated overlay runs local while preserving real Databricks links", () => {
+    const native_url = "https://workspace.example/jobs/2400/runs/88000";
+    const simulated = {
+      ...plane,
+      provenance: "workspace_simulation",
+      native_url,
+    };
+    const link = jobRunLink(
+      simulated,
+      "replay",
+      60000,
+      objects[0].id,
+      "mixed-capture",
+    )!;
+    expect(link.external).toBe(false);
+    expect(link.label).toBe("Open simulated job run");
+    const params = new URL(link.href, "http://localhost").searchParams;
+    expect(params.get("capture")).toBe("mixed-capture");
+    expect(params.get("attempt")).toBe(simulated.id);
+    expect(
+      jobRunLink(
+        { ...plane, provenance: "system_tables_history", native_url },
+        "replay",
+        60000,
+      )?.href,
+    ).toBe(native_url);
+  });
   it("preserves an exact native run URL ahead of the demo fallback", () => {
     const native_url =
       "https://workspace.example/jobs/2400/runs/88000?o=123#task/99000";

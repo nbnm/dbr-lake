@@ -1,5 +1,17 @@
 import type { Attempt, Replay, Snapshot } from "./types";
 
+export function isSimulated(a: Attempt, mode: Snapshot["mode"]): boolean {
+  return a.provenance === "workspace_simulation" || mode === "demo";
+}
+
+export function replayLabel(scene: Snapshot): string {
+  return scene.simulation
+    ? `Real + ${scene.simulation.added_runs} simulated`
+    : scene.mode === "demo"
+      ? "Simulated replay"
+      : "Historical replay";
+}
+
 export function reconstruct(replay: Replay, at: number): Snapshot {
   const checkpoint = replay.checkpoint;
   const attempts = new Map(checkpoint.attempts.map((a) => [a.id, a]));

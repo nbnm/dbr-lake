@@ -4,7 +4,6 @@ import { Line, RoundedBox } from "@react-three/drei";
 import { BufferGeometry, Float32BufferAttribute, Group } from "three";
 import type { AirportLayout, DockLayout, PierLayout, Point } from "../layout";
 import type { Selection } from "../types";
-import { BERTH_SPACING } from "../navigation";
 import { Label } from "./SceneLabel";
 
 const roof = new BufferGeometry();
@@ -129,7 +128,7 @@ export function Dock({
             <span>Catalog dock</span>
             <strong>{dock.catalog}</strong>
             <small>
-              {dock.piers.length} schemas · {dock.objects.length} tables
+              {dock.piers.length} schemas
             </small>
           </button>
         </Label>
@@ -207,65 +206,23 @@ export function Pier({
           <Bollard position={[x, 0.23, 0.78]} />
         </group>
       ))}
-      {dock.objects.slice(0, dock.slots).map((table, i) => {
-        const x = (i - (dock.slots - 1) / 2) * BERTH_SPACING;
-        const tint = ["#d9d7b8", "#a9bbb0", "#d6b89b"][i % 3];
-        return (
-          <group
-            key={table.id}
-            position={[x, 0, 0]}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect({ type: "table", id: table.id });
-            }}
-          >
-            <mesh position={[0, 0.05, 1.52]}>
-              <boxGeometry args={[0.37, 0.2, 1.27]} />
-              <meshStandardMaterial color="#bda377" />
-            </mesh>
-            {Array.from({ length: 6 }, (_, n) => (
-              <mesh key={n} position={[0, 0.154, 1.04 + n * 0.19]}>
-                <boxGeometry args={[0.35, 0.01, 0.018]} />
-                <meshStandardMaterial color="#927e5a" />
-              </mesh>
-            ))}
-            <mesh position={[0.14, -0.07, 1.94]}>
-              <cylinderGeometry args={[0.065, 0.075, 0.47, 5]} />
-              <meshStandardMaterial color="#8f7958" />
-            </mesh>
-            <Bollard position={[0.12, 0.17, 1.78]} />
-            <RoundedBox
-              args={[0.65, 0.48, 0.74]}
-              radius={0.025}
-              smoothness={1}
-              position={[0, 0.37, -0.14]}
-            >
-              <meshStandardMaterial color={tint} />
-            </RoundedBox>
-            <mesh position={[0, 0.61, -0.14]} geometry={roof}>
-              <meshStandardMaterial color="#697e72" flatShading side={2} />
-            </mesh>
-            <mesh position={[0, 0.38, 0.241]}>
-              <boxGeometry args={[0.24, 0.28, 0.02]} />
-              <meshStandardMaterial color="#7b8d7b" />
-            </mesh>
-            <mesh position={[0, 0.38, 0.254]}>
-              <boxGeometry args={[0.012, 0.26, 0.012]} />
-              <meshStandardMaterial color="#bccbb5" />
-            </mesh>
-            {expanded && (
-              <Label center position={[0, 0.5, 2.2]} zIndexRange={[22, 0]}>
-                <button
-                  className={`berth-label ${selected.type === "table" && selected.id === table.id ? "selected" : ""}`}
-                  onClick={() => onSelect({ type: "table", id: table.id })}
-                >
-                  {table.name}
-                </button>
-              </Label>
-            )}
-          </group>
-        );
-      })}
+      <RoundedBox
+        args={[w - 0.6, 0.2, 1.3]}
+        radius={0.05}
+        smoothness={1}
+        position={[0, 0.1, 1.65]}
+      >
+        <meshStandardMaterial color="#bda377" />
+      </RoundedBox>
+      {Array.from({ length: Math.ceil((w - 0.6) / 0.28) }, (_, i) => (
+        <mesh key={i} position={[-(w - 0.6) / 2 + i * 0.28, 0.205, 1.65]}>
+          <boxGeometry args={[0.018, 0.01, 1.26]} />
+          <meshStandardMaterial color="#927e5a" />
+        </mesh>
+      ))}
+      {[-w / 2 + 0.5, w / 2 - 0.5].map((x) => (
+        <Bollard key={x} position={[x, 0.2, 2.1]} />
+      ))}
       <mesh position={[-w / 2 + 0.15, 0.22, -0.97]}>
         <boxGeometry args={[0.33, 0.35, 0.31]} />
         <meshStandardMaterial color="#ad8d61" />
@@ -287,18 +244,12 @@ export function Pier({
       <Label center position={[0, 1.1, 1.5]} zIndexRange={[20, 0]}>
         <button
           className={`dock-label schema-label ${expanded ? "selected" : ""}`}
-          aria-label={`Schema pier ${dock.catalog}.${dock.schema} · ${dock.objects.length} tables`}
+          aria-label={`Schema pier ${dock.catalog}.${dock.schema}`}
           onClick={() => onSelect({ type: "schema", id: dock.id })}
         >
           <span>Schema pier</span>
           <strong>{dock.schema}</strong>
-          <small>
-            {dock.objects.length}{" "}
-            {dock.objects.length === 1 ? "table" : "tables"}
-            {dock.objects.length > dock.slots
-              ? ` · ${dock.slots} grouped berths`
-              : ""}
-          </small>
+          <small>{dock.catalog}</small>
         </button>
       </Label>
     </group>
@@ -327,8 +278,6 @@ export function Airport({
   });
   const active = selected.type === "airport" && selected.id === airport.id;
   const exporting = airport.role === "export";
-  const tableCount = (exporting ? airport.source_ids : airport.target_ids)
-    .length;
   return (
     <group
       position={airport.center}
@@ -432,14 +381,13 @@ export function Airport({
       >
         <button
           className={`dock-label airport-label ${active ? "selected" : ""}`}
-          aria-label={`External ${exporting ? "destination" : "source"} ${airport.name} Airport · ${tableCount} ${exporting ? "source" : "destination"} ${tableCount === 1 ? "berth" : "berths"}`}
+          aria-label={`External ${exporting ? "destination" : "source"} ${airport.name} Airport`}
           onClick={() => onSelect({ type: "airport", id: airport.id })}
         >
           <span>{exporting ? "Export destination" : "External source"}</span>
           <strong>{airport.name}</strong>
           <small>
-            Airport · {tableCount} {exporting ? "source" : "destination"}{" "}
-            {tableCount === 1 ? "berth" : "berths"}
+            {exporting ? "Export airport" : "Source airport"}
           </small>
         </button>
       </Label>

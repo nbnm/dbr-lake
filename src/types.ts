@@ -59,6 +59,7 @@ export interface Attempt {
   ended_at: number | null;
   observed_at: number;
   source_id: string;
+  provenance?: string;
   route: Route;
   estimate: Estimate;
   collection_stale_at: number | null;
@@ -86,6 +87,11 @@ export interface Snapshot {
   inventory?: InventoryEntry[];
   warnings?: string[];
   history_note?: string;
+  simulation?: {
+    added_runs: number;
+    source_capture_id: string;
+    version: string;
+  };
   account_id: string;
   server_time: number;
   cursor: number;

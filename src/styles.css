@@ -596,10 +596,6 @@ input[type="checkbox"] {
     padding: 5px 7px;
   }
 }
-.berth-label.selected {
-  border-color: #bc8d69;
-  background: #fff3df;
-}
 @media (max-width: 580px) {
   .dock-label:not(.airport-label) {
     min-width: 0;
@@ -609,7 +605,6 @@ input[type="checkbox"] {
   .dock-label:not(.airport-label) small,
   .airport-label span,
   .airport-label small,
-  .berth-label,
   .vessel-label {
     display: none;
   }
@@ -645,13 +640,12 @@ button.external-source:hover {
 button.external-source > svg:last-child {
   margin-left: auto;
 }
-.berth-label {
-  font-size: 8px;
-  background: #fcf9eb;
-  border: 1px solid #cfbba0;
-  border-radius: 3px;
-  padding: 3px 5px;
-  white-space: nowrap;
+.simulation-tag {
+  display: inline-block;
+  margin: 4px 0 0 6px;
+  color: #8c6a34;
+  font-size: 9px;
+  font-weight: 600;
 }
 .vessel-label {
   font-size: 8px;

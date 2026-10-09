@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import type { Attempt, Selection, Snapshot } from "./types";
-import { duration, elapsed, status, timestamp } from "./state";
+import { duration, elapsed, isSimulated, status, timestamp } from "./state";
 import { catalogId, schemaId, type AirportLayout } from "./layout";
 import {
   flightSelection,
@@ -198,8 +198,8 @@ export default function Inspector({
             <h2>{airport.name}</h2>
             <p>
               {airport.role === "export"
-                ? "Exports depart from their source table berths and land here."
-                : "External ingestion departs here for its destination table berths."}
+                ? "Exports depart from their source schema piers and land here."
+                : "External ingestion departs here for its destination schema piers."}
             </p>
           </div>
           <section className="inspector-section">
@@ -225,7 +225,7 @@ export default function Inspector({
           </section>
           <section className="inspector-section">
             <h3>
-              {airport.role === "export" ? "Source" : "Destination"} berths ·{" "}
+              {airport.role === "export" ? "Source" : "Destination"} tables ·{" "}
               {
                 (airport.role === "export"
                   ? airport.source_ids
@@ -290,6 +290,13 @@ export default function Inspector({
             </div>
             <h2>{a.name}</h2>
             <StatusBadge attempt={a} at={scene.server_time} />
+            {scene.simulation && (
+              <span className="simulation-tag">
+                {isSimulated(a, scene.mode)
+                  ? "Simulated run"
+                  : "Real captured run"}
+              </span>
+            )}
           </div>
           <div className="workspace-caption">
             <MapPin size={14} />
@@ -409,19 +416,21 @@ export default function Inspector({
               )}
             </div>
             <p className="evidence-note">
-              {a.route.evidence === "observed"
-                ? scene.mode === "demo"
-                  ? "This fixture associates the route with this execution."
-                  : "Source evidence associates this route with this execution."
-                : a.route.evidence === "historical"
-                  ? a.scope === "job_run"
-                    ? "Observed lineage for this job run in the fixed capture. Missing lineage may leave routes unresolved; task-level attribution is not inferred."
-                    : "A prior comparable execution used this route. Current-run lineage is unconfirmed."
-                  : a.route.evidence === "configured"
-                    ? scene.mode === "demo"
-                      ? "An explicit demo mapping supplies this route."
-                      : "A saved task mapping supplies this route; current-run lineage was not collected."
-                    : "No tables have been inferred."}
+              {a.provenance === "workspace_simulation"
+                ? "Simulated route using real captured table identities. This movement was not observed in Databricks."
+                : a.route.evidence === "observed"
+                  ? scene.mode === "demo"
+                    ? "This fixture associates the route with this execution."
+                    : "Source evidence associates this route with this execution."
+                  : a.route.evidence === "historical"
+                    ? a.scope === "job_run"
+                      ? "Observed lineage for this job run in the fixed capture. Missing lineage may leave routes unresolved; task-level attribution is not inferred."
+                      : "A prior comparable execution used this route. Current-run lineage is unconfirmed."
+                    : a.route.evidence === "configured"
+                      ? scene.mode === "demo"
+                        ? "An explicit demo mapping supplies this route."
+                        : "A saved task mapping supplies this route; current-run lineage was not collected."
+                      : "No tables have been inferred."}
             </p>
           </section>
           <section className="inspector-section">
@@ -469,12 +478,14 @@ export default function Inspector({
               </p>
             )}
             <p className="evidence-note">
-              {a.replay_duration_ms
-                ? "Vessel position follows the recorded run duration in this fixed replay. It does not measure data progress."
-                : "Vessel position represents estimated elapsed time."}
+              {a.provenance === "workspace_simulation"
+                ? "Vessel position follows the simulated duration. Times and results are invented."
+                : a.replay_duration_ms
+                  ? "Vessel position follows the recorded run duration in this fixed replay. It does not measure data progress."
+                  : "Vessel position represents estimated elapsed time."}
             </p>
           </section>
-          {a.scope === "job_run" && (
+          {a.scope === "job_run" && a.provenance !== "workspace_simulation" && (
             <section className="inspector-section">
               <h3>Task runs at this time</h3>
               {(a.run_tasks ?? [])
@@ -552,7 +563,7 @@ export default function Inspector({
             </div>
             <div className="eyebrow">
               {table
-                ? "Table berth"
+                ? "Captured table"
                 : selected.type === "catalog"
                   ? "Catalog dock"
                   : "Schema pier"}
@@ -630,7 +641,7 @@ export default function Inspector({
             </section>
           ) : (
             <section className="inspector-section">
-              <h3>Table berths · {tables.length}</h3>
+              <h3>Captured tables · {tables.length}</h3>
               {tables.map((o) => (
                 <TableName
                   key={o.id}
@@ -683,9 +694,11 @@ export default function Inspector({
       )}
       <div className="panel-footer">
         <i />
-        {scene.mode === "demo"
-          ? "Simulated metadata"
-          : "Imported historical metadata"}{" "}
+        {a?.provenance === "workspace_simulation"
+          ? "Simulated run · real table identities"
+          : scene.mode === "demo"
+            ? "Simulated metadata"
+            : "Imported historical metadata"}{" "}
         · read-only replay
       </div>
     </aside>

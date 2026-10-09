@@ -426,6 +426,30 @@ export default function Configuration({
             Import last 24 hours
           </button>
         </section>
+        <section className="config-import">
+          <div>
+            <h3>Simulate activity on real schemas</h3>
+            <p>
+              Keep the imported jobs and add 84 simulated API landings,
+              transformations and exports using captured tables and job names.
+            </p>
+          </div>
+          <button
+            className="primary-button"
+            disabled={!!busy || lastCapture === null}
+            onClick={() =>
+              action("Adding simulated runs to the saved replay…", async () => {
+                onLoaded(
+                  await api<Replay>("/api/replay/simulate", { method: "POST" }),
+                );
+                onClose();
+              })
+            }
+          >
+            <Plus size={15} />
+            Add 84 simulated runs
+          </button>
+        </section>
         <button
           className="config-sample text-button"
           disabled={!!busy}
@@ -436,7 +460,7 @@ export default function Configuration({
             })
           }
         >
-          Simulate 80 job runs · 24 hours
+          Standalone simulated sample · 80 runs
         </button>
         {busy && (
           <div className="config-busy" role="status">
