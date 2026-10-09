@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useContext,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -12,15 +13,22 @@ import { Group, Mesh, OrthographicCamera, Vector3 } from "three";
 import type { OrbitControls as Controls } from "three-stdlib";
 import type { Attempt, Selection } from "./types";
 import type { LakeLayout, Point } from "./layout";
-import { CAMERA_OFFSET, cameraFit, lighthousePoint } from "./layout";
+import {
+  CAMERA_OFFSET,
+  PORTRAIT_CAMERA_OFFSET,
+  cameraFit,
+  lighthousePoint,
+  antaresPoint,
+} from "./layout";
 import { isOverdue } from "./state";
 import { makePath, positionAt, type MotionPath } from "./motion";
 import { separateTraffic } from "./traffic";
-import { Label, LabelPortal } from "./scene/SceneLabel";
+import { Label, LabelPortal, SceneCaptions } from "./scene/SceneLabel";
 import { Dock, Airport } from "./scene/HarborModels";
 import { PaperPlane, PaperShip } from "./scene/PaperModels";
 import { LakeSurface } from "./scene/LakeSurface";
 import {
+  AntaresSkyscraper,
   EightFDEOctopus,
   LakeSentryLighthouse,
   PondPilotDucks,
@@ -48,7 +56,8 @@ function CameraRig({
 }) {
   const controls = useRef<Controls>(null);
   const { camera, size } = useThree();
-  const fit = cameraFit(layout, size.width, size.height);
+  const offset = size.width < 600 ? PORTRAIT_CAMERA_OFFSET : CAMERA_OFFSET;
+  const fit = cameraFit(layout, size.width, size.height, offset);
   const scale = Math.max(
     1,
     (layout.bounds.max[0] - layout.bounds.min[0]) / 35,
@@ -61,9 +70,7 @@ function CameraRig({
       2,
       (layout.bounds.min[2] + layout.bounds.max[2]) / 2,
     );
-    c.position
-      .copy(target)
-      .add(new Vector3(...CAMERA_OFFSET).multiplyScalar(scale));
+    c.position.copy(target).add(new Vector3(...offset).multiplyScalar(scale));
     c.lookAt(target);
     c.zoom = fit;
     c.far = Math.max(200, 160 * scale);
@@ -186,11 +193,12 @@ function Vessel({
       wake.current.scale.x = 1 + Math.sin(at / 1200) * 0.04;
     }
   });
+  const captions = useContext(SceneCaptions);
   const points = useMemo(() => path.curve.getSpacedPoints(55), [path]);
   return (
     <>
       {a.route.evidence !== "unknown" &&
-        (selected || a.phase === "running") && (
+        (selected || (captions && a.phase === "running")) && (
           <Line
             points={points}
             color={selected ? "#d37c62" : colors[a.route.evidence]}
@@ -447,6 +455,7 @@ export default function LakeScene({
   clock,
   reduced,
   eggs,
+  captions,
   action,
 }: {
   layout: LakeLayout;
@@ -456,6 +465,7 @@ export default function LakeScene({
   clock: RefObject<number>;
   reduced: boolean;
   eggs: boolean;
+  captions: boolean;
   action: CameraAction | null;
 }) {
   // Stable DOM attachment prevents HTML labels from rebuilding when events connect.
@@ -478,52 +488,55 @@ export default function LakeScene({
           }
         >
           <LabelPortal.Provider value={portal}>
-            <color attach="background" args={["#f0f3eb"]} />
-            <ambientLight intensity={1.35} />
-            <directionalLight
-              position={[8, 18, 9]}
-              intensity={2}
-              color="#fff9ed"
-            />
-            <CameraRig action={action} layout={layout} />
-            <LakeSurface layout={layout} clock={clock} reduced={reduced} />
-            <LakeSentryLighthouse
-              point={lighthousePoint(layout)}
-              clock={clock}
-              reduced={reduced}
-            />
-            {layout.docks.map((dock) => (
-              <Dock
-                key={dock.id}
-                dock={dock}
-                selected={selected}
-                onSelect={onSelect}
+            <SceneCaptions.Provider value={captions}>
+              <color attach="background" args={["#f0f3eb"]} />
+              <ambientLight intensity={1.35} />
+              <directionalLight
+                position={[8, 18, 9]}
+                intensity={2}
+                color="#fff9ed"
               />
-            ))}
-            {layout.airports.map((airport) => (
-              <Airport
-                key={airport.id}
-                airport={airport}
-                selected={selected}
-                onSelect={onSelect}
+              <CameraRig action={action} layout={layout} />
+              <LakeSurface layout={layout} clock={clock} reduced={reduced} />
+              <LakeSentryLighthouse
+                point={lighthousePoint(layout)}
                 clock={clock}
                 reduced={reduced}
               />
-            ))}
-            <VesselTraffic
-              attempts={attempts}
-              layout={layout}
-              clock={clock}
-              reduced={reduced}
-              selected={selected}
-              onSelect={onSelect}
-            />
-            {eggs && (
-              <>
-                <PondPilotDucks reduced={reduced} water={layout.water} />
-                <EightFDEOctopus reduced={reduced} water={layout.water} />
-              </>
-            )}
+              <AntaresSkyscraper point={antaresPoint(layout)} />
+              {layout.docks.map((dock) => (
+                <Dock
+                  key={dock.id}
+                  dock={dock}
+                  selected={selected}
+                  onSelect={onSelect}
+                />
+              ))}
+              {layout.airports.map((airport) => (
+                <Airport
+                  key={airport.id}
+                  airport={airport}
+                  selected={selected}
+                  onSelect={onSelect}
+                  clock={clock}
+                  reduced={reduced}
+                />
+              ))}
+              <VesselTraffic
+                attempts={attempts}
+                layout={layout}
+                clock={clock}
+                reduced={reduced}
+                selected={selected}
+                onSelect={onSelect}
+              />
+              {eggs && (
+                <>
+                  <PondPilotDucks reduced={reduced} water={layout.water} />
+                  <EightFDEOctopus reduced={reduced} water={layout.water} />
+                </>
+              )}
+            </SceneCaptions.Provider>
           </LabelPortal.Provider>
         </Canvas>
       </SceneBoundary>

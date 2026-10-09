@@ -1,4 +1,9 @@
-import { lighthousePoint, type LakeLayout, type Point } from "./layout";
+import {
+  antaresPoint,
+  lighthousePoint,
+  type LakeLayout,
+  type Point,
+} from "./layout";
 
 export interface FieldPatch {
   center: Point;
@@ -47,7 +52,7 @@ export function buildSurroundings(layout: LakeLayout) {
     })),
   );
   const trees: ForestTree[] = [];
-  const tower = lighthousePoint(layout);
+  const landmarks = [lighthousePoint(layout), antaresPoint(layout)];
   const nearRoad = (x: number, z: number) =>
     roads.some(({ from, to }) => {
       const dx = to[0] - from[0],
@@ -98,7 +103,12 @@ export function buildSurroundings(layout: LakeLayout) {
         )
       )
         continue;
-      if (Math.hypot(px - tower[0], pz - tower[2]) < 2 || nearRoad(px, pz))
+      if (
+        landmarks.some(
+          (tower) => Math.hypot(px - tower[0], pz - tower[2]) < 2.2,
+        ) ||
+        nearRoad(px, pz)
+      )
         continue;
       // Keep the rounded outer corners clear as well.
       if (

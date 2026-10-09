@@ -75,6 +75,9 @@ class Attempt(BaseModel):
     estimate: Estimate
     collection_stale_at: int | None = None
     native_url: str | None = None
+    scope: Literal['task_run', 'job_run'] = 'task_run'
+    run_tasks: list[dict] = Field(default_factory=list)
+    replay_duration_ms: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def truthful_transport(self):

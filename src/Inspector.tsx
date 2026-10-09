@@ -114,7 +114,9 @@ export default function Inspector({
             : selected.type === "airport"
               ? "External source"
               : selected.type === "attempt"
-                ? "Task inspector"
+                ? a?.scope === "job_run"
+                  ? "Job run inspector"
+                  : "Task inspector"
                 : "Catalog explorer"}
         </span>
         <button
@@ -165,10 +167,10 @@ export default function Inspector({
                       ? timestamp(w.last_successful_poll)
                       : "Not collected"}
                   </dd>
-                  <dt>Lineage lag</dt>
+                  <dt>Latest captured lineage</dt>
                   <dd>
                     {w.lineage_observed_at
-                      ? duration(scene.server_time - w.lineage_observed_at)
+                      ? timestamp(w.lineage_observed_at, "minute")
                       : "Unknown"}
                   </dd>
                 </dl>
@@ -306,8 +308,8 @@ export default function Inspector({
                 );
               })}
               <p className="evidence-note">
-                One plane per destination. All planes share this task attempt’s
-                status and launch estimate.
+                One plane per destination. All planes share this execution’s
+                status and timing.
               </p>
             </section>
           )}
@@ -361,7 +363,9 @@ export default function Inspector({
                   ? "This fixture associates the route with this execution."
                   : "Source evidence associates this route with this execution."
                 : a.route.evidence === "historical"
-                  ? "A prior comparable execution used this route. Current-run lineage is unconfirmed."
+                  ? a.scope === "job_run"
+                    ? "Observed lineage for this job run in the fixed capture. Missing lineage may leave routes unresolved; task-level attribution is not inferred."
+                    : "A prior comparable execution used this route. Current-run lineage is unconfirmed."
                   : a.route.evidence === "configured"
                     ? scene.mode === "demo"
                       ? "An explicit demo mapping supplies this route."
@@ -414,9 +418,44 @@ export default function Inspector({
               </p>
             )}
             <p className="evidence-note">
-              Vessel position represents estimated elapsed time.
+              {a.replay_duration_ms
+                ? "Vessel position follows the recorded run duration in this fixed replay. It does not measure data progress."
+                : "Vessel position represents estimated elapsed time."}
             </p>
           </section>
+          {a.scope === "job_run" && (
+            <section className="inspector-section">
+              <h3>Task runs at this time</h3>
+              {(a.run_tasks ?? [])
+                .filter((t) => t.started_at <= scene.server_time)
+                .map((t) => (
+                  <div
+                    className="task-history-row"
+                    key={`${t.task_run_id}:${t.started_at}`}
+                  >
+                    <span>
+                      <strong>{t.task_key}</strong>
+                      <small>
+                        Task run {t.task_run_id} ·{" "}
+                        {timestamp(t.started_at, "minute")}
+                      </small>
+                    </span>
+                    <small>
+                      {t.ended_at !== null && t.ended_at <= scene.server_time
+                        ? t.raw_state
+                        : "Last reported running"}
+                    </small>
+                  </div>
+                ))}
+              {!(a.run_tasks ?? []).some(
+                (t) => t.started_at <= scene.server_time,
+              ) && (
+                <p className="evidence-note">
+                  No task start observed by this replay time.
+                </p>
+              )}
+            </section>
+          )}
           <section className="inspector-section">
             <h3>Source details</h3>
             <dl>
@@ -424,8 +463,8 @@ export default function Inspector({
               <dd>
                 {a.job_id} / {a.run_id}
               </dd>
-              <dt>Task run</dt>
-              <dd>{a.task_run_id}</dd>
+              <dt>{a.scope === "job_run" ? "Execution scope" : "Task run"}</dt>
+              <dd>{a.scope === "job_run" ? "Job run" : a.task_run_id}</dd>
               <dt>Attempt</dt>
               <dd>
                 {a.attempt_number + 1}

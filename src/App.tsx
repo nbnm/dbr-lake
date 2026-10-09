@@ -10,6 +10,8 @@ import {
   Layers3,
   List,
   Maximize2,
+  Menu,
+  X,
   Pause,
   Play,
   Plus,
@@ -49,7 +51,11 @@ export default function App() {
   const [retry, setRetry] = useState(0);
   const [at, setAt] = useState(0);
   const clock = useRef(0);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(true);
+  const [navigation, setNavigation] = useState(false);
+  const [controls, setControls] = useState(false);
+  const [details, setDetails] = useState(false);
+  const [captions, setCaptions] = useState(false);
   const [speed, setSpeed] = useState(60);
   const [configuration, setConfiguration] = useState(false);
   const [query, setQuery] = useState("");
@@ -94,7 +100,7 @@ export default function App() {
               )
             : data.checkpoint.mode === "demo"
               ? data.checkpoint.range.start + 600_000
-              : data.checkpoint.range.end - 900_000;
+              : data.checkpoint.range.start;
         setAt(clock.current);
         if (!initialParams.has("attempt") && data.mode === "replay") {
           const candidate =
@@ -197,6 +203,11 @@ export default function App() {
     );
   });
 
+  function select(selection: Selection) {
+    setSelected(selection);
+    setDetails(true);
+  }
+
   function camera(
     kind: CameraAction["kind"],
     target?: [number, number, number],
@@ -260,7 +271,8 @@ export default function App() {
 
   function loadCapture(data: Replay) {
     setReplay(data);
-    setPlaying(false);
+    setPlaying(true);
+    setDetails(false);
     setQuery("");
     setFilter("all");
     setWorkspace("all");
@@ -268,7 +280,7 @@ export default function App() {
     clock.current =
       data.checkpoint.mode === "demo"
         ? data.checkpoint.range.start + 600_000
-        : data.checkpoint.range.end - 900_000;
+        : data.checkpoint.range.start;
     setAt(clock.current);
     const candidates = reconstruct(data, clock.current).attempts;
     const chosen =
@@ -317,50 +329,66 @@ export default function App() {
     .find((time) => time < at);
   const nextTaskTime = taskTimes.find((time) => time > at);
   const tickLabel = (time: number) =>
-    `${new Date(time).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric" })} ${timestamp(time).slice(0, 5)}`;
+    `${new Date(time).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric" })} ${timestamp(time, "minute")}`;
   return (
-    <div className="app-shell">
-      <nav className="rail" aria-label="Main navigation">
-        <div className="rail-brand" title="T1A Lake">
-          <Waves size={25} />
-        </div>
-        <button
-          className={view === "lake" ? "active" : ""}
-          title="Lake view"
-          aria-label="Lake view"
-          onClick={() => setView("lake")}
-        >
-          <Layers3 size={20} />
-        </button>
-        <button
-          className={view === "list" ? "active" : ""}
-          title="Activity list"
-          aria-label="Activity list"
-          onClick={() => setView("list")}
-        >
-          <List size={21} />
-        </button>
-        <button
-          title="Workspace coverage"
-          aria-label="Workspace coverage"
-          onClick={() => setSelected({ type: "coverage" })}
-        >
-          <Globe2 size={20} />
-        </button>
-        <div className="rail-spacer" />
-        <button
-          aria-label="Replay configuration"
-          title="Replay configuration"
-          onClick={() => setConfiguration(true)}
-        >
-          <Settings2 size={20} />
-        </button>
-        <span className="rail-account" title="T1A Operations">
-          T1A
-        </span>
-      </nav>
+    <div
+      className={`app-shell focus-mode ${navigation ? "navigation-open" : ""} ${controls ? "controls-open" : ""}`}
+    >
+      {navigation && (
+        <nav className="rail" aria-label="Main navigation">
+          <button
+            className="rail-brand"
+            aria-label="Hide navigation"
+            onClick={() => setNavigation(false)}
+          >
+            <X size={21} />
+          </button>
+          <button
+            className={view === "lake" ? "active" : ""}
+            title="Lake view"
+            aria-label="Lake view"
+            onClick={() => setView("lake")}
+          >
+            <Layers3 size={20} />
+          </button>
+          <button
+            className={view === "list" ? "active" : ""}
+            title="Activity list"
+            aria-label="Activity list"
+            onClick={() => setView("list")}
+          >
+            <List size={21} />
+          </button>
+          <button
+            title="Workspace coverage"
+            aria-label="Workspace coverage"
+            onClick={() => select({ type: "coverage" })}
+          >
+            <Globe2 size={20} />
+          </button>
+          <div className="rail-spacer" />
+          <button
+            aria-label="Replay configuration"
+            title="Replay configuration"
+            onClick={() => setConfiguration(true)}
+          >
+            <Settings2 size={20} />
+          </button>
+          <span className="rail-account" title="T1A Operations">
+            T1A
+          </span>
+        </nav>
+      )}
       <div className="app-body">
         <header className="topbar">
+          <button
+            className="icon-button navigation-toggle"
+            aria-label="Show navigation"
+            aria-expanded={navigation}
+            onClick={() => setNavigation(!navigation)}
+          >
+            <Menu size={19} />
+          </button>
           <a href="/" className="wordmark">
             lake<span>by T1A</span>
           </a>
@@ -384,6 +412,22 @@ export default function App() {
             <span>/</span>
           </label>
           <div className="header-right">
+            {scene && (
+              <time
+                className="ambient-replay-time"
+                dateTime={new Date(at).toISOString()}
+              >
+                {tickLabel(at)}
+              </time>
+            )}
+            <button
+              className="icon-button"
+              aria-label="Configure replay"
+              title="Configure replay"
+              onClick={() => setConfiguration(true)}
+            >
+              <Settings2 size={18} />
+            </button>
             <span className="demo-pill">
               <i />
               {scene?.mode === "replay"
@@ -426,7 +470,7 @@ export default function App() {
               </div>
               <button
                 className="coverage-button"
-                onClick={() => setSelected({ type: "coverage" })}
+                onClick={() => select({ type: "coverage" })}
               >
                 <Globe2 size={15} />
                 {
@@ -471,7 +515,7 @@ export default function App() {
                 </label>
                 <button
                   className="freshness"
-                  onClick={() => setSelected({ type: "coverage" })}
+                  onClick={() => select({ type: "coverage" })}
                 >
                   <i className="amber-dot" />
                   {scene.workspaces.filter((w) => w.status === "stale").length
@@ -513,39 +557,41 @@ export default function App() {
                     className="lake-stage"
                     aria-label="Interactive lake scene"
                   >
-                    <div className="summary-strip">
-                      {(["running", "failed", "overdue"] as const).map(
-                        (key) => (
-                          <button
-                            key={key}
-                            className={`summary ${key} ${filter === key ? "chosen" : ""}`}
-                            aria-pressed={filter === key}
-                            onClick={() =>
-                              setFilter(filter === key ? "all" : key)
-                            }
-                          >
-                            <span>
-                              <i />
-                              {key === "running"
-                                ? "Running tasks"
-                                : key === "failed"
-                                  ? "Failed attempts"
-                                  : "Beyond estimate"}
-                            </span>
-                            <strong>
-                              {counts[key]}
-                              <small>
+                    {captions && (
+                      <div className="summary-strip">
+                        {(["running", "failed", "overdue"] as const).map(
+                          (key) => (
+                            <button
+                              key={key}
+                              className={`summary ${key} ${filter === key ? "chosen" : ""}`}
+                              aria-pressed={filter === key}
+                              onClick={() =>
+                                setFilter(filter === key ? "all" : key)
+                              }
+                            >
+                              <span>
+                                <i />
                                 {key === "running"
-                                  ? "in motion"
+                                  ? "Running tasks"
                                   : key === "failed"
-                                    ? "needs attention"
-                                    : "holding route"}
-                              </small>
-                            </strong>
-                          </button>
-                        ),
-                      )}
-                    </div>
+                                    ? "Failed attempts"
+                                    : "Beyond estimate"}
+                              </span>
+                              <strong>
+                                {counts[key]}
+                                <small>
+                                  {key === "running"
+                                    ? "in motion"
+                                    : key === "failed"
+                                      ? "needs attention"
+                                      : "holding route"}
+                                </small>
+                              </strong>
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    )}
                     <Suspense
                       fallback={
                         <div className="scene-fallback">
@@ -557,8 +603,9 @@ export default function App() {
                         <LakeScene
                           layout={layout}
                           attempts={visible}
-                          selected={selected}
-                          onSelect={setSelected}
+                          selected={details ? selected : { type: "coverage" }}
+                          onSelect={select}
+                          captions={captions}
                           clock={clock}
                           reduced={reduced}
                           eggs={eggs}
@@ -566,28 +613,63 @@ export default function App() {
                         />
                       )}
                     </Suspense>
-                    <div className="scene-topnote">
-                      <span title="Lake size follows the complete inventory. Filters preserve positions.">
-                        {layout?.docks.length ?? 0} catalogs ·{" "}
-                        {layout?.piers.length ?? 0} schemas ·{" "}
-                        {layout?.objects.length ?? 0} tables ·{" "}
-                        {layout?.airports.length ?? 0} airports
-                      </span>
-                      <small>Drag to orbit · right-drag to pan</small>
-                    </div>
-                    <div className="scene-legend">
-                      <span>
-                        <i className="solid" />
-                        Observed
-                      </span>
-                      <span>
-                        <i className="dotted" />
-                        Historical
-                      </span>
-                      <span>
-                        <i className="dashed" />
-                        Configured
-                      </span>
+                    {captions && (
+                      <>
+                        <div className="scene-topnote">
+                          <span title="Lake size follows the complete inventory. Filters preserve positions.">
+                            {layout?.docks.length ?? 0} catalogs ·{" "}
+                            {layout?.piers.length ?? 0} schemas ·{" "}
+                            {layout?.objects.length ?? 0} tables ·{" "}
+                            {layout?.airports.length ?? 0} airports
+                          </span>
+                          <small>Drag to orbit · right-drag to pan</small>
+                        </div>
+                        <div className="scene-legend">
+                          <span>
+                            <i className="solid" />
+                            Observed
+                          </span>
+                          <span>
+                            <i className="dotted" />
+                            Historical
+                          </span>
+                          <span>
+                            <i className="dashed" />
+                            Configured
+                          </span>
+                        </div>
+                      </>
+                    )}
+                    <div className="scene-toolbar">
+                      {!controls && (
+                        <button
+                          className="ambient-play"
+                          aria-label={
+                            playing ? "Pause playback" : "Play playback"
+                          }
+                          onClick={() => {
+                            if (at >= scene.range.end) seek(scene.range.start);
+                            setPlaying(!playing);
+                          }}
+                        >
+                          {playing ? <Pause size={17} /> : <Play size={17} />}
+                        </button>
+                      )}
+                      <button
+                        aria-label={
+                          controls
+                            ? "Hide replay controls"
+                            : "Show replay controls"
+                        }
+                        aria-expanded={controls}
+                        onClick={() => {
+                          setControls(!controls);
+                          setView("lake");
+                        }}
+                      >
+                        <Settings2 size={16} />
+                        Replay
+                      </button>
                     </div>
                     <div className="camera-controls">
                       <button
@@ -618,300 +700,344 @@ export default function App() {
                     </div>
                   </section>
                 )}
-                <section
-                  className={`activity-section ${view === "list" ? "expanded" : ""}`}
-                  aria-label="Task activity"
-                >
-                  <div className="activity-heading">
-                    <h2>
-                      <Activity size={16} />
-                      Activity<span>{filtered.length}</span>
-                    </h2>
-                    <div>
-                      {filter !== "all" && (
-                        <button
-                          className="clear-filter"
-                          onClick={() => setFilter("all")}
-                        >
-                          Clear {filter} filter ×
-                        </button>
-                      )}
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          setView(view === "lake" ? "list" : "lake")
-                        }
-                      >
-                        {view === "lake" ? "Expand list" : "Back to lake"}
-                        <ArrowUpRight size={13} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="activity-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Task / route</th>
-                          <th>Workspace</th>
-                          <th>Status</th>
-                          <th>Elapsed / estimate</th>
-                          <th>Evidence</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filtered
-                          .sort(
-                            (a, b) =>
-                              Number(b.phase === "failed") -
-                                Number(a.phase === "failed") ||
-                              Number(isOverdue(b, at)) -
-                                Number(isOverdue(a, at)),
-                          )
-                          .map((a) => (
-                            <tr
-                              key={a.id}
-                              className={
-                                selected.type === "attempt" &&
-                                selected.id === a.id
-                                  ? "selected"
-                                  : ""
-                              }
+                {(controls || view === "list") && (
+                  <>
+                    {" "}
+                    <section
+                      className={`activity-section ${view === "list" ? "expanded" : ""}`}
+                      aria-label="Task activity"
+                    >
+                      <div className="activity-heading">
+                        <h2>
+                          <Activity size={16} />
+                          Activity<span>{filtered.length}</span>
+                        </h2>
+                        <div>
+                          {filter !== "all" && (
+                            <button
+                              className="clear-filter"
+                              onClick={() => setFilter("all")}
                             >
-                              <td>
-                                <button
-                                  className="task-button"
-                                  onClick={() =>
-                                    setSelected({ type: "attempt", id: a.id })
+                              Clear {filter} filter ×
+                            </button>
+                          )}
+                          <button
+                            className="text-button"
+                            onClick={() =>
+                              setView(view === "lake" ? "list" : "lake")
+                            }
+                          >
+                            {view === "lake" ? "Expand list" : "Back to lake"}
+                            <ArrowUpRight size={13} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="activity-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Task / route</th>
+                              <th>Workspace</th>
+                              <th>Status</th>
+                              <th>Elapsed / estimate</th>
+                              <th>Evidence</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered
+                              .sort(
+                                (a, b) =>
+                                  Number(b.phase === "failed") -
+                                    Number(a.phase === "failed") ||
+                                  Number(isOverdue(b, at)) -
+                                    Number(isOverdue(a, at)),
+                              )
+                              .map((a) => (
+                                <tr
+                                  key={a.id}
+                                  className={
+                                    selected.type === "attempt" &&
+                                    selected.id === a.id
+                                      ? "selected"
+                                      : ""
                                   }
                                 >
-                                  <span className={`task-type ${a.kind}`}>
-                                    {a.kind === "plane" ? (
-                                      <ArrowDownLeft size={17} />
-                                    ) : a.kind === "ship" ? (
-                                      <Ship size={17} />
-                                    ) : (
-                                      <Database size={16} />
-                                    )}
-                                  </span>
-                                  <span>
-                                    <strong>{a.name}</strong>
-                                    <small>
-                                      {a.route.target_ids[0]
-                                        ?.split(":")
-                                        .pop() ?? "Route unknown"}
-                                    </small>
-                                  </span>
-                                </button>
-                              </td>
-                              <td>
-                                {scene.workspaces
-                                  .find((w) => w.id === a.workspace_id)
-                                  ?.name.replace("Production ", "Prod. ")}
-                              </td>
-                              <td>
-                                <StatusBadge attempt={a} at={at} />
-                              </td>
-                              <td className="tabular">
-                                {duration(elapsed(a, at))}
-                                <span className="muted">
-                                  {" "}
-                                  / {duration(a.estimate.predicted_duration_ms)}
-                                </span>
-                              </td>
-                              <td>
-                                <span
-                                  className={`evidence ${a.route.evidence}`}
-                                >
-                                  {a.route.evidence}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                    {filtered.length === 0 && (
-                      <div className="empty-list">
-                        <Search size={21} />
-                        <strong>No matching activity</strong>
-                        <p>
-                          Try another workspace, region, status, or search term.
-                        </p>
+                                  <td>
+                                    <button
+                                      className="task-button"
+                                      onClick={() =>
+                                        select({ type: "attempt", id: a.id })
+                                      }
+                                    >
+                                      <span className={`task-type ${a.kind}`}>
+                                        {a.kind === "plane" ? (
+                                          <ArrowDownLeft size={17} />
+                                        ) : a.kind === "ship" ? (
+                                          <Ship size={17} />
+                                        ) : (
+                                          <Database size={16} />
+                                        )}
+                                      </span>
+                                      <span>
+                                        <strong>{a.name}</strong>
+                                        <small>
+                                          {a.route.target_ids[0]
+                                            ?.split(":")
+                                            .pop() ?? "Route unknown"}
+                                        </small>
+                                      </span>
+                                    </button>
+                                  </td>
+                                  <td>
+                                    {scene.workspaces
+                                      .find((w) => w.id === a.workspace_id)
+                                      ?.name.replace("Production ", "Prod. ")}
+                                  </td>
+                                  <td>
+                                    <StatusBadge attempt={a} at={at} />
+                                  </td>
+                                  <td className="tabular">
+                                    {duration(elapsed(a, at))}
+                                    <span className="muted">
+                                      {" "}
+                                      /{" "}
+                                      {duration(
+                                        a.estimate.predicted_duration_ms,
+                                      )}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span
+                                      className={`evidence ${a.route.evidence}`}
+                                    >
+                                      {a.route.evidence}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                        {filtered.length === 0 && (
+                          <div className="empty-list">
+                            <Search size={21} />
+                            <strong>No matching activity</strong>
+                            <p>
+                              Try another workspace, region, status, or search
+                              term.
+                            </p>
+                            <button
+                              className="text-button"
+                              onClick={() => {
+                                setQuery("");
+                                setWorkspace("all");
+                                setRegion("all");
+                                setFilter("all");
+                              }}
+                            >
+                              Clear filters
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  </>
+                )}
+                {controls && (
+                  <>
+                    {" "}
+                    <section
+                      className="playback"
+                      aria-label="24-hour replay controls"
+                    >
+                      <div className="playback-head">
+                        <div>
+                          <span className="capture-label">
+                            <i />
+                            {scene.mode === "demo"
+                              ? "SIMULATED REPLAY"
+                              : "HISTORICAL REPLAY"}
+                          </span>
+                          <span>
+                            {new Date(scene.range.start).toLocaleDateString(
+                              "en-CA",
+                              { timeZone: "America/Toronto" },
+                            )}{" "}
+                            →{" "}
+                            {new Date(scene.range.end).toLocaleDateString(
+                              "en-CA",
+                              {
+                                timeZone: "America/Toronto",
+                              },
+                            )}{" "}
+                            · 24 hours
+                          </span>
+                        </div>
+                        <div className="options-wrap">
+                          <button
+                            className={`icon-button ${options ? "selected" : ""}`}
+                            aria-label="View options"
+                            aria-expanded={options}
+                            onClick={() => setOptions(!options)}
+                          >
+                            <Settings2 size={17} />
+                          </button>
+                          {options && (
+                            <div className="options-panel">
+                              <strong>View options</strong>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={eggs}
+                                  onChange={(e) => setEggs(e.target.checked)}
+                                />
+                                Lake mascots
+                              </label>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={reduced}
+                                  onChange={(e) => setReduced(e.target.checked)}
+                                />
+                                Reduce motion
+                              </label>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={captions}
+                                  onChange={(e) =>
+                                    setCaptions(e.target.checked)
+                                  }
+                                />
+                                Show captions
+                              </label>
+                              <p>
+                                1 minute of history plays in 1 second at 60×.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="timeline-row">
                         <button
-                          className="text-button"
+                          className="icon-button"
+                          aria-label="Previous run event"
+                          disabled={previousTaskTime === undefined}
                           onClick={() => {
-                            setQuery("");
-                            setWorkspace("all");
-                            setRegion("all");
-                            setFilter("all");
+                            setPlaying(false);
+                            if (previousTaskTime !== undefined)
+                              seek(previousTaskTime);
                           }}
                         >
-                          Clear filters
+                          <SkipBack size={15} />
+                        </button>
+                        <button
+                          className="play-button"
+                          aria-label={
+                            playing ? "Pause playback" : "Play playback"
+                          }
+                          onClick={() => {
+                            if (at >= scene.range.end) seek(scene.range.start);
+                            setPlaying(!playing);
+                          }}
+                        >
+                          {playing ? <Pause size={16} /> : <Play size={16} />}
+                        </button>
+                        <button
+                          className="icon-button"
+                          aria-label="Next run event"
+                          disabled={nextTaskTime === undefined}
+                          onClick={() => {
+                            setPlaying(false);
+                            if (nextTaskTime !== undefined) seek(nextTaskTime);
+                          }}
+                        >
+                          <SkipForward size={15} />
+                        </button>
+                        <label className="speed-control">
+                          <select
+                            aria-label="Playback speed"
+                            value={speed}
+                            onChange={(e) => setSpeed(Number(e.target.value))}
+                          >
+                            <option value={1}>1×</option>
+                            <option value={5}>5×</option>
+                            <option value={20}>20×</option>
+                            <option value={60}>60× · 1 min / sec</option>
+                            <option value={300}>300×</option>
+                            <option value={1000}>1000×</option>
+                            <option value={3600}>3600×</option>
+                          </select>
+                          <ChevronDown size={12} />
+                        </label>
+                        <span className="current-time">
+                          {timestamp(at, "minute")}
+                        </span>
+                        <div className="timeline-track">
+                          {scene.gaps.map((g, i) => (
+                            <span
+                              key={i}
+                              className="gap-marker"
+                              title={`${g.reason} ${timestamp(g.start, "minute")}–${timestamp(g.end, "minute")}`}
+                              style={{
+                                left: `${((g.start - scene.range.start) / (scene.range.end - scene.range.start)) * 100}%`,
+                                width: `${((g.end - g.start) / (scene.range.end - scene.range.start)) * 100}%`,
+                              }}
+                            />
+                          ))}
+                          <input
+                            type="range"
+                            aria-label="Replay time"
+                            min={scene.range.start}
+                            max={scene.range.end}
+                            step={60_000}
+                            value={at}
+                            onChange={(e) => {
+                              setPlaying(false);
+                              seek(Number(e.target.value));
+                            }}
+                          />
+                          <div className="timeline-labels">
+                            <span>{tickLabel(scene.range.start)}</span>
+                            <span>
+                              {scene.mode === "demo"
+                                ? "Simulated gaps shaded"
+                                : "Fixed capture · Toronto time"}
+                            </span>
+                            <span>{tickLabel(scene.range.end)}</span>
+                          </div>
+                        </div>
+                        <button
+                          className="icon-button"
+                          aria-label="Restart capture"
+                          onClick={() => {
+                            seek(scene.range.start);
+                          }}
+                        >
+                          <RotateCcw size={16} />
                         </button>
                       </div>
-                    )}
-                  </div>
-                </section>
-                <section
-                  className="playback"
-                  aria-label="24-hour replay controls"
-                >
-                  <div className="playback-head">
-                    <div>
-                      <span className="capture-label">
-                        <i />
-                        {scene.mode === "demo"
-                          ? "SIMULATED REPLAY"
-                          : "HISTORICAL REPLAY"}
-                      </span>
-                      <span>
-                        {new Date(scene.range.start).toLocaleDateString(
-                          "en-CA",
-                          { timeZone: "America/Toronto" },
-                        )}{" "}
-                        →{" "}
-                        {new Date(scene.range.end).toLocaleDateString("en-CA", {
-                          timeZone: "America/Toronto",
-                        })}{" "}
-                        · 24 hours
-                      </span>
-                    </div>
-                    <div className="options-wrap">
-                      <button
-                        className={`icon-button ${options ? "selected" : ""}`}
-                        aria-label="View options"
-                        aria-expanded={options}
-                        onClick={() => setOptions(!options)}
-                      >
-                        <Settings2 size={17} />
-                      </button>
-                      {options && (
-                        <div className="options-panel">
-                          <strong>View options</strong>
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={eggs}
-                              onChange={(e) => setEggs(e.target.checked)}
-                            />
-                            Lake mascots
-                          </label>
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={reduced}
-                              onChange={(e) => setReduced(e.target.checked)}
-                            />
-                            Reduce motion
-                          </label>
-                          <p>The activity list contains every task.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="timeline-row">
-                    <button
-                      className="icon-button"
-                      aria-label="Previous task event"
-                      disabled={previousTaskTime === undefined}
-                      onClick={() => {
-                        setPlaying(false);
-                        if (previousTaskTime !== undefined)
-                          seek(previousTaskTime);
-                      }}
-                    >
-                      <SkipBack size={15} />
-                    </button>
-                    <button
-                      className="play-button"
-                      aria-label={playing ? "Pause playback" : "Play playback"}
-                      onClick={() => {
-                        if (at >= scene.range.end) seek(scene.range.start);
-                        setPlaying(!playing);
-                      }}
-                    >
-                      {playing ? <Pause size={16} /> : <Play size={16} />}
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label="Next task event"
-                      disabled={nextTaskTime === undefined}
-                      onClick={() => {
-                        setPlaying(false);
-                        if (nextTaskTime !== undefined) seek(nextTaskTime);
-                      }}
-                    >
-                      <SkipForward size={15} />
-                    </button>
-                    <label className="speed-control">
-                      <select
-                        aria-label="Playback speed"
-                        value={speed}
-                        onChange={(e) => setSpeed(Number(e.target.value))}
-                      >
-                        <option value={1}>1×</option>
-                        <option value={5}>5×</option>
-                        <option value={20}>20×</option>
-                        <option value={60}>60×</option>
-                        <option value={300}>300×</option>
-                        <option value={1000}>1000×</option>
-                        <option value={3600}>3600×</option>
-                      </select>
-                      <ChevronDown size={12} />
-                    </label>
-                    <span className="current-time">{timestamp(at)}</span>
-                    <div className="timeline-track">
-                      {scene.gaps.map((g, i) => (
-                        <span
-                          key={i}
-                          className="gap-marker"
-                          title={`${g.reason} ${timestamp(g.start)}–${timestamp(g.end)}`}
-                          style={{
-                            left: `${((g.start - scene.range.start) / (scene.range.end - scene.range.start)) * 100}%`,
-                            width: `${((g.end - g.start) / (scene.range.end - scene.range.start)) * 100}%`,
-                          }}
-                        />
-                      ))}
-                      <input
-                        type="range"
-                        aria-label="Replay time"
-                        min={scene.range.start}
-                        max={scene.range.end}
-                        step={1000}
-                        value={at}
-                        onChange={(e) => {
-                          setPlaying(false);
-                          seek(Number(e.target.value));
-                        }}
-                      />
-                      <div className="timeline-labels">
-                        <span>{tickLabel(scene.range.start)}</span>
-                        <span>
-                          {scene.mode === "demo"
-                            ? "Simulated gaps shaded"
-                            : "Fixed capture · Toronto time"}
-                        </span>
-                        <span>{tickLabel(scene.range.end)}</span>
-                      </div>
-                    </div>
-                    <button
-                      className="icon-button"
-                      aria-label="Restart capture"
-                      onClick={() => {
-                        seek(scene.range.start);
-                      }}
-                    >
-                      <RotateCcw size={16} />
-                    </button>
-                  </div>
-                </section>
+                    </section>
+                  </>
+                )}
               </div>
-              <Inspector
-                airports={layout?.airports ?? []}
-                selected={selected}
-                scene={scene}
-                onSelect={setSelected}
-                onFocus={focus}
-              />
+              {details && (
+                <div className="inspection-drawer">
+                  <button
+                    className="icon-button close-inspector"
+                    aria-label="Close details"
+                    onClick={() => setDetails(false)}
+                  >
+                    <X size={18} />
+                  </button>
+                  <Inspector
+                    airports={layout?.airports ?? []}
+                    selected={selected}
+                    scene={scene}
+                    onSelect={select}
+                    onFocus={focus}
+                  />
+                </div>
+              )}
             </main>
             <footer className="app-footer">
               <span>

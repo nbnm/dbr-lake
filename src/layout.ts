@@ -10,6 +10,7 @@ import {
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
+export const PORTRAIT_CAMERA_OFFSET: Point = [48, 35, 6];
 export interface PierLayout {
   catalog_id: string;
   id: string;
@@ -57,6 +58,10 @@ export interface LakeLayout {
 
 export function lighthousePoint(layout: Pick<LakeLayout, "water">): Point {
   return [-layout.water.halfWidth + 1.4, 0.1, layout.water.halfDepth + 0.65];
+}
+
+export function antaresPoint(layout: Pick<LakeLayout, "water">): Point {
+  return [layout.water.halfWidth + 4.4, 0.1, layout.water.halfDepth + 1.3];
 }
 
 export function catalogId(
@@ -312,8 +317,13 @@ export function buildLakeLayout(
 
 // Projection of the entire diorama at the default orthographic camera angle.
 // Padding reserves room for labels and the operational overlays.
-export function cameraFit(layout: LakeLayout, width: number, height: number) {
-  const forward = CAMERA_OFFSET;
+export function cameraFit(
+  layout: LakeLayout,
+  width: number,
+  height: number,
+  offset: Point = CAMERA_OFFSET,
+) {
+  const forward = offset;
   const length = Math.hypot(...forward);
   const f = forward.map((v) => v / length);
   const rightLength = Math.hypot(f[0], f[2]);
@@ -345,6 +355,10 @@ export function cameraFit(layout: LakeLayout, width: number, height: number) {
         lighthousePoint(layout)[2] + 1.4,
       ],
     },
+    {
+      min: [antaresPoint(layout)[0] - 1.5, -0.1, antaresPoint(layout)[2] - 1.2],
+      max: [antaresPoint(layout)[0] + 1.5, 8.2, antaresPoint(layout)[2] + 1.2],
+    },
     ...layout.airports.map((a) => ({
       min: [
         a.center[0] - 2.3 - (a.side === -1 ? a.apronExtra : 0),
@@ -369,7 +383,7 @@ export function cameraFit(layout: LakeLayout, width: number, height: number) {
   return Math.max(
     0.25,
     Math.min(
-      (width - (width < 600 ? 105 : 65)) / span(0),
+      (width - (width < 600 ? 50 : 65)) / span(0),
       (height - 85) / span(1),
     ),
   );

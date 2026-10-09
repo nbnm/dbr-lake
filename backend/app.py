@@ -105,21 +105,28 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def test_connection(connection_id: str, request: Request):
         try:
             settings, token = request.app.state.repository.credential(connection_id)
-            reader = DatabricksReader(settings, token)
+            from .system_import import SystemTablesReader
+            system = settings.get('import_source') == 'system_tables'
+            reader = (SystemTablesReader if system else DatabricksReader)(settings, token)
             try: reader.test()
             finally: reader.close()
-            return {'ok': True, 'message': 'Connected. Historical Jobs API access verified.'}
+            return {'ok': True, 'message': 'Connected. Regional job history and lineage access verified.' if system else 'Connected. Historical Jobs API access verified.'}
         except (ValueError, ImportFailure) as e:
             raise HTTPException(400, str(e)) from None
 
     @app.post('/api/replay/import')
-    def import_replay(request: Request):
+    def import_replay(request: Request, connection_id: str | None = None):
         if not request.app.state.import_lock.acquire(blocking=False):
             raise HTTPException(409, 'A replay import is already running.')
         try:
             repo = request.app.state.repository
             settings = repo.list()
             if not settings: raise ValueError('Add a workspace connection first.')
+            if connection_id:
+                settings = [s for s in settings if s['id'] == connection_id]
+                if not settings: raise ValueError('The selected integration workspace was not found.')
+            elif len(settings) > 1:
+                raise ValueError('Select one integration workspace to import account history.')
             credentials = [repo.credential(s['id']) for s in settings]
             capture = build_capture(credentials)
             repo.save_capture(capture)  # Atomic activation; previous capture survives failures.
@@ -195,6 +202,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
     dist = Path(__file__).resolve().parents[1] / "dist"
     if dist.exists():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        if (dist / "brands").exists():
+            app.mount("/brands", StaticFiles(directory=dist / "brands"), name="brands")
 
         @app.get("/")
         def index():

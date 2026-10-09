@@ -61,6 +61,15 @@ export interface Attempt {
   estimate: Estimate;
   collection_stale_at: number | null;
   native_url: string | null;
+  scope?: "task_run" | "job_run";
+  replay_duration_ms?: number | null;
+  run_tasks?: {
+    task_key: string;
+    task_run_id: string;
+    started_at: number;
+    ended_at: number | null;
+    raw_state: string;
+  }[];
 }
 export interface Gap {
   start: number;
@@ -123,6 +132,8 @@ export interface ConnectionSettings {
   region: string;
   token_configured: boolean;
   routes: TaskMapping[];
+  import_source?: "system_tables" | "jobs_api";
+  warehouse_id?: string | null;
 }
 export interface TaskMapping {
   job_id: string;

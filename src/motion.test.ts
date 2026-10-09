@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Attempt, LakeObject } from "./types";
 import { makePath, positionAt } from "./motion";
-import { isOverdue, reconstruct, status } from "./state";
+import { isOverdue, reconstruct, status, timestamp } from "./state";
 import type { Replay } from "./types";
 
 const objects: LakeObject[] = [
@@ -90,6 +90,36 @@ describe("motion contract", () => {
     );
     for (const speed of increments)
       expect(Math.abs(speed - nominal) / nominal).toBeLessThan(0.05);
+  });
+  it("uses recorded historical duration for smooth replay without inventing an ETA or success", () => {
+    const recorded = {
+      ...attempt,
+      replay_duration_ms: 120000,
+      estimate: {
+        ...attempt.estimate,
+        predicted_duration_ms: null,
+        sample_count: 0,
+      },
+    };
+    expect(
+      positionAt(recorded, path, 61000).position.distanceTo(
+        path.curve.getPointAt(0.5),
+      ),
+    ).toBeLessThan(0.0001);
+    expect(positionAt(recorded, path, 120999).holding).toBe(false);
+    expect(status(recorded, 61000)).toBe("Running");
+    expect(recorded.estimate.predicted_duration_ms).toBeNull();
+    const stopped = { ...recorded, collection_stale_at: 61000 };
+    expect(
+      positionAt(stopped, path, 120000).position.equals(
+        positionAt(stopped, path, 61000).position,
+      ),
+    ).toBe(true);
+  });
+  it("formats timeline times to minutes while retaining precise inspector times", () => {
+    const at = Date.UTC(2026, 9, 8, 18, 5, 29);
+    expect(timestamp(at, "minute")).toBe("14:05");
+    expect(timestamp(at)).toBe("14:05:29");
   });
   it("expired prediction loops without reporting success", () => {
     expect(positionAt(attempt, path, 250000).holding).toBe(true);

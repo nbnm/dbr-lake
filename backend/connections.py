@@ -5,6 +5,7 @@ from pathlib import Path
 from threading import RLock
 from urllib.parse import urlsplit
 from uuid import uuid4
+from typing import Literal
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 
@@ -30,6 +31,8 @@ class ConnectionInput(BaseModel):
     token: SecretStr | None = None
     region: str = Field(default="unspecified", max_length=100)
     routes: list[TaskMapping] = Field(default_factory=list, max_length=200)
+    import_source: Literal['system_tables', 'jobs_api'] = 'system_tables'
+    warehouse_id: str | None = Field(default=None, pattern=r'^[A-Za-z0-9-]{1,100}$')
 
     @field_validator("host")
     @classmethod

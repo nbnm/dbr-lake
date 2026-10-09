@@ -72,11 +72,14 @@ export function duration(ms: number | null): string {
   return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
 }
 
-export function timestamp(ms: number): string {
+export function timestamp(
+  ms: number,
+  precision: "second" | "minute" = "second",
+): string {
   return new Intl.DateTimeFormat("en-CA", {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
+    ...(precision === "second" ? { second: "2-digit" as const } : {}),
     hour12: false,
     timeZone: "America/Toronto",
   }).format(ms);

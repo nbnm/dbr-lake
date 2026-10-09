@@ -121,8 +121,8 @@ class DatabricksReader:
 
 def phase_for(state):
     result = state.get('result_state')
-    if result == 'SUCCESS': return 'succeeded'
-    if result in ('FAILED', 'TIMEDOUT', 'ERROR', 'MAXIMUM_CONCURRENT_RUNS_REACHED'): return 'failed'
+    if result in ('SUCCESS', 'SUCCEEDED'): return 'succeeded'
+    if result in ('FAILED', 'TIMEDOUT', 'ERROR', 'MAXIMUM_CONCURRENT_RUNS_REACHED', 'ERROR_WITH_PARTIAL_SUCCESS', 'TIMED_OUT', 'UPSTREAM_FAILED'): return 'failed'
     if result in ('CANCELED', 'CANCELLED'): return 'cancelled'
     if state.get('life_cycle_state') in ('PENDING', 'QUEUED', 'WAITING_FOR_RETRY', 'BLOCKED'): return 'queued'
     if state.get('life_cycle_state') in ('RUNNING', 'TERMINATING'): return 'running'
@@ -131,6 +131,11 @@ def phase_for(state):
 
 def build_capture(credentials, end=None, reader_factory=DatabricksReader):
     end = int(time.time() * 1000) if end is None else end
+    if any(s.get('import_source') == 'system_tables' for s, _ in credentials):
+        if len(credentials) != 1:
+            raise ImportFailure('Select one integration workspace for the system-table import.')
+        from .system_import import build_system_capture
+        return build_system_capture(*credentials[0], end=end)
     start, capture_id = end - DAY_MS, uuid4().hex
     objects, schemas, workspaces, events, warnings = {}, {}, [], [], []
     records = {}
@@ -186,27 +191,38 @@ def build_capture(credentials, end=None, reader_factory=DatabricksReader):
                         queued_at=max(start, parent.get('start_time') or start))
         finally:
             reader.close()
+    return finish_capture(records.values(), list(objects.values()), list(schemas.values()), workspaces,
+                          warnings, start, end, capture_id, 'local-replay', 'jobs_api_start_time',
+                          'Historical states reconstructed from Jobs API start/end times. Intermediate states were not polled. Routes require explicit task mappings.')
+
+
+def finish_capture(records, objects, schemas, workspaces, warnings, start, end, capture_id,
+                   account_id, timing_basis, history_note):
+    records = [dict(r) for r in records]
+    events = []
     history = [HistoricalAttempt(r['signature'], r['ended_at'], r['ended_at'] - r['started_at'], r['phase'])
-               for r in records.values() if r['ended_at'] and r['started_at'] and r['ended_at'] > r['started_at']]
-    for r in records.values():
+               for r in records if r['ended_at'] and r['started_at'] and r['ended_at'] > r['started_at']]
+    for r in records:
         signature, queued_at = r.pop('signature'), r.pop('queued_at')
         estimate = estimate_duration(history, signature, r['started_at'] or end, f'{capture_id}:prior-successes')
-        estimate.timing_basis = 'jobs_api_start_time'
+        estimate.timing_basis = timing_basis
         a = Attempt(**r, estimate=estimate)
         if a.started_at is not None:
-            running = a.model_copy(update={'phase': 'running', 'raw_state': 'REPLAY_RUNNING', 'ended_at': None})
+            running = a.model_copy(update={'phase': 'running', 'raw_state': 'REPLAY_RUNNING', 'ended_at': None, 'collection_stale_at': None})
             events.append((a.started_at, running))
         if a.ended_at is not None and a.ended_at <= end:
             events.append((a.ended_at, a))
         elif a.started_at is None:
             events.append((queued_at, a))
-    envelopes = [dict(event_id=f'{capture_id}:{i}', schema_version=1, sequence=i + 1, account_id='local-replay',
+        elif a.collection_stale_at is not None:
+            events.append((a.collection_stale_at, a))
+    envelopes = [dict(event_id=f'{capture_id}:{i}', schema_version=1, sequence=i + 1, account_id=account_id,
         workspace_id=a.workspace_id, execution_attempt_id=a.id, event_time=t, observed_at=end,
         type='attempt.upsert', payload=a.model_dump()) for i, (t, a) in enumerate(sorted(events, key=lambda e: (e[0], e[1].id)))]
-    checkpoint = dict(mode='replay', capture_id=capture_id, captured_at=end, account_id='local-replay', server_time=start,
-        cursor=0, range={'start': start, 'end': end}, objects=list(objects.values()), inventory=list(schemas.values()),
+    checkpoint = dict(mode='replay', capture_id=capture_id, captured_at=end, account_id=account_id, server_time=start,
+        cursor=0, range={'start': start, 'end': end}, objects=objects, inventory=schemas,
         attempts=[], workspaces=workspaces, gaps=[], warnings=list(dict.fromkeys(warnings)),
-        history_note='Historical states reconstructed from Jobs API start/end times. Intermediate states were not polled. Routes require explicit task mappings.')
+        history_note=history_note)
     for e in envelopes:
         if e['event_time'] <= start:
             checkpoint['attempts'] = [a for a in checkpoint['attempts'] if a['id'] != e['payload']['id']] + [e['payload']]

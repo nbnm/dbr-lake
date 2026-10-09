@@ -9,7 +9,7 @@ from backend.estimates import DAY_MS
 
 END = 2_000_000_000_000
 START = END - DAY_MS
-SETTINGS = {'id': 'workspace', 'name': 'Production', 'host': 'https://test.cloud.databricks.com',
+SETTINGS = {'import_source': 'jobs_api', 'id': 'workspace', 'name': 'Production', 'host': 'https://test.cloud.databricks.com',
             'region': 'test-region', 'routes': [{'job_id': '1', 'task_key': 'ingest', 'source_tables': [],
                 'target_tables': ['sales.raw.orders', 'sales.raw.customers'], 'external_source': 'Event Hubs'}]}
 SECRET = 'mock-token-never-a-real-credential'

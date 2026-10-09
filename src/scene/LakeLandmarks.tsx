@@ -17,6 +17,7 @@ import { Label } from "./SceneLabel";
 const LAKESENTRY_URL = "https://lakesentry.io/";
 const PONDPILOT_URL = "https://pondpilot.io/";
 const EIGHT_FDE_URL = "https://8fde.ai/";
+const ANTARES_URL = "https://getantares.io/";
 const hover = () => {
   document.body.style.cursor = "pointer";
 };
@@ -38,7 +39,7 @@ function LandmarkLink({
   theme: "lighthouse" | "ducks" | "octopus";
 }) {
   return (
-    <Label center position={point} zIndexRange={[18, 0]}>
+    <Label persistent center position={point} zIndexRange={[18, 0]}>
       <a
         className={`landmark-link ${theme}-link`}
         href={href}
@@ -51,6 +52,78 @@ function LandmarkLink({
         <ArrowUpRight size={12} aria-hidden="true" />
       </a>
     </Label>
+  );
+}
+
+export function AntaresSkyscraper({ point }: { point: Point }) {
+  return (
+    <group
+      position={point}
+      onClick={(event) => {
+        event.stopPropagation();
+        visit(ANTARES_URL);
+      }}
+      onPointerOver={hover}
+      onPointerOut={unhover}
+    >
+      <RoundedBox args={[2.7, 0.24, 2.2]} radius={0.12} position={[0, 0.12, 0]}>
+        <meshStandardMaterial color="#deddd1" />
+      </RoundedBox>
+      <RoundedBox
+        args={[2.15, 3.3, 1.65]}
+        radius={0.07}
+        position={[0, 1.89, 0]}
+      >
+        <meshStandardMaterial
+          color="#b6c8c8"
+          roughness={0.38}
+          metalness={0.18}
+        />
+      </RoundedBox>
+      <RoundedBox args={[1.6, 2.65, 1.35]} radius={0.05} position={[0, 4.8, 0]}>
+        <meshStandardMaterial
+          color="#a2b8bd"
+          roughness={0.35}
+          metalness={0.2}
+        />
+      </RoundedBox>
+      {[0.85, 1.4, 1.95, 2.5, 3.05, 3.85, 4.4, 4.95, 5.5].map((y, i) => (
+        <mesh key={y} position={[0, y, 0]}>
+          <boxGeometry args={[i < 5 ? 2.2 : 1.66, 0.065, i < 5 ? 1.7 : 1.4]} />
+          <meshStandardMaterial color="#e5e8df" />
+        </mesh>
+      ))}
+      {[-0.72, 0, 0.72].map((x) => (
+        <mesh key={x} position={[x, 1.91, 0.84]}>
+          <boxGeometry args={[0.05, 3.1, 0.06]} />
+          <meshStandardMaterial color="#ebede4" />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.6, 0.84]}>
+        <boxGeometry args={[0.5, 0.68, 0.035]} />
+        <meshStandardMaterial color="#718c8c" />
+      </mesh>
+      <mesh position={[0, 6.3, 0]}>
+        <boxGeometry args={[1.7, 0.25, 1.45]} />
+        <meshStandardMaterial color="#e3e5dd" />
+      </mesh>
+      <mesh position={[-0.48, 6.87, 0]}>
+        <cylinderGeometry args={[0.025, 0.035, 0.95, 6]} />
+        <meshStandardMaterial color="#8d9c98" />
+      </mesh>
+      <Label persistent center position={[0, 7.65, 0]} zIndexRange={[18, 0]}>
+        <a
+          className="antares-logo"
+          href={ANTARES_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visit Antares (opens in a new tab)"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <img src="/brands/antares.svg" alt="Antares" width="98" height="20" />
+        </a>
+      </Label>
+    </group>
   );
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
-import { buildLakeLayout, lighthousePoint } from "./layout";
+import { buildLakeLayout, lighthousePoint, antaresPoint } from "./layout";
 import { buildNavigation, vesselKey } from "./navigation";
 import { makePath, positionAt } from "./motion";
 import { buildSurroundings } from "./environment";
@@ -133,6 +133,15 @@ describe("shore and countryside", () => {
     expect(
       Math.abs(layout.airports[0].center[0]) - 2.15 - layout.water.halfWidth,
     ).toBeGreaterThan(4);
+    const tower = antaresPoint(layout);
+    for (const x of [tower[0] - 1.35, tower[0] + 1.35])
+      for (const z of [tower[2] - 1.1, tower[2] + 1.1]) {
+        expect(insideLake(layout, x, z)).toBe(false);
+        expect(Math.abs(x)).toBeLessThan(layout.ground.halfWidth);
+        expect(Math.abs(z)).toBeLessThan(layout.ground.halfDepth);
+      }
+    for (const airport of layout.airports)
+      expect(Math.abs(tower[2] - airport.center[2])).toBeGreaterThan(4.6);
     const surroundings = buildSurroundings(layout);
     expect(surroundings.fields).toHaveLength(6);
     expect(surroundings.trees.length).toBeGreaterThan(20);
@@ -141,6 +150,7 @@ describe("shore and countryside", () => {
       point: [x, , z],
     } of surroundings.trees) {
       expect(insideLake(layout, x, z)).toBe(false);
+      expect(Math.hypot(x - tower[0], z - tower[2])).toBeGreaterThan(2.2);
       for (const a of layout.airports)
         expect(
           Math.abs(x - a.center[0]) > 3.2 || Math.abs(z - a.center[2]) > 4.1,

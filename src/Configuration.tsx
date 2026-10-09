@@ -8,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { ConnectionSettings, Replay, TaskMapping } from "./types";
+import type { ConnectionSettings, Replay } from "./types";
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, options);
@@ -37,7 +37,7 @@ export default function Configuration({
     [host, setHost] = useState(""),
     [region, setRegion] = useState("");
   const [token, setToken] = useState("");
-  const [routes, setRoutes] = useState("[]");
+  const [warehouse, setWarehouse] = useState("");
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
     [message, setMessage] = useState<string | null>(null);
@@ -56,6 +56,7 @@ export default function Configuration({
         if (current) {
           setConnections(data.connections);
           setLastCapture(data.last_capture?.captured_at ?? null);
+          if (data.connections[0]) edit(data.connections[0]);
         }
       })
       .catch((e: Error) => {
@@ -71,7 +72,7 @@ export default function Configuration({
     setHost(c?.host ?? "");
     setRegion(c?.region ?? "");
     setToken("");
-    setRoutes(JSON.stringify(c?.routes ?? [], null, 2));
+    setWarehouse(c?.warehouse_id ?? "");
     setError(null);
     setMessage(null);
   }
@@ -111,13 +112,13 @@ export default function Configuration({
         <div className="config-intro">
           <span className="config-replay-tag">Last 24 hours</span>
           <p>
-            Import a fixed history capture, then play, pause, and seek through
-            it.
+            One workspace connection reads regional account job history and
+            lineage into a fixed 24-hour capture.
           </p>
         </div>
         <section className="connection-list">
           <div className="config-section-heading">
-            <h3>Workspaces</h3>
+            <h3>Integration workspace</h3>
             <button
               className="text-button"
               disabled={!!busy}
@@ -175,19 +176,13 @@ export default function Configuration({
           onSubmit={(event) => {
             event.preventDefault();
             action("Saving connection", async () => {
-              let mappings: TaskMapping[];
-              try {
-                mappings = JSON.parse(routes);
-                if (!Array.isArray(mappings)) throw new Error();
-              } catch {
-                throw new Error("Task mappings must be a JSON array.");
-              }
               const body = {
                 id: selected,
                 name: name.trim(),
                 host: host.trim(),
                 region: region.trim() || "unspecified",
-                routes: mappings,
+                import_source: "system_tables",
+                warehouse_id: warehouse.trim() || null,
                 ...(token ? { token } : {}),
               };
               const c = await api<ConnectionSettings>("/api/configuration", {
@@ -206,6 +201,13 @@ export default function Configuration({
           }}
         >
           <h3>{selected ? "Connection details" : "New connection"}</h3>
+          {selected &&
+            connections.find((c) => c.id === selected)?.import_source !==
+              "system_tables" && (
+              <p className="config-secret-note">
+                Save this connection to enable system-table and lineage import.
+              </p>
+            )}
           <div className="config-field-row">
             <label>
               Workspace name
@@ -263,24 +265,24 @@ export default function Configuration({
             to the browser or saved to disk. Connection details and imported
             metadata are saved locally.
           </p>
-          <details className="config-mappings">
-            <summary>
-              Task route mappings <span>optional</span>
-            </summary>
-            <p>
-              Map a job and task to known tables. Without a mapping, the task
-              appears as a processing buoy.
-            </p>
-            <textarea
-              aria-label="Task route mappings JSON"
-              rows={8}
-              value={routes}
-              onChange={(e) => setRoutes(e.target.value)}
-              spellCheck={false}
+          <label>
+            <span className="config-field-label">
+              SQL warehouse ID <small>optional</small>
+            </span>
+            <input
+              value={warehouse}
+              onChange={(e) => setWarehouse(e.target.value)}
+              placeholder="Leave blank to use a running warehouse"
               disabled={!!busy}
+              autoComplete="off"
             />
-            <pre>{`[{"job_id":"123","task_key":"ingest",\n  "source_tables":[],\n  "target_tables":["catalog.schema.table"],\n  "external_source":"Event Hubs"}]`}</pre>
-          </details>
+          </label>
+          <p className="config-secret-note">
+            Requires warehouse usage and SELECT access to system.lakeflow job
+            history, system.access lineage and workspace metadata, and
+            system.information_schema inventory. Job history covers this cloud
+            region; recent records may be delayed.
+          </p>
           <div className="config-form-actions">
             <button className="primary-button" disabled={!!busy} type="submit">
               Save connection
@@ -291,7 +293,10 @@ export default function Configuration({
                 type="button"
                 disabled={
                   !!busy ||
-                  !connections.find((c) => c.id === selected)?.token_configured
+                  !connections.find((c) => c.id === selected)
+                    ?.token_configured ||
+                  connections.find((c) => c.id === selected)?.import_source !==
+                    "system_tables"
                 }
                 onClick={() =>
                   action("Testing connection", async () => {
@@ -323,8 +328,8 @@ export default function Configuration({
           <div>
             <h3>Capture the previous 24 hours</h3>
             <p>
-              Reads visible job runs and catalog metadata once. Existing
-              playback stays available while importing.
+              Reads job runs, task details, table lineage and visible catalog
+              inventory using the selected integration workspace.
             </p>
             {lastCapture && (
               <small>
@@ -336,14 +341,18 @@ export default function Configuration({
             className="primary-button"
             disabled={
               !!busy ||
-              !connections.length ||
-              connections.some((c) => !c.token_configured)
+              !connections.find((c) => c.id === selected)?.token_configured ||
+              connections.find((c) => c.id === selected)?.import_source !==
+                "system_tables"
             }
             onClick={() =>
-              action("Importing historical job runs…", async () => {
-                const replay = await api<Replay>("/api/replay/import", {
-                  method: "POST",
-                });
+              action("Importing system tables and lineage…", async () => {
+                const replay = await api<Replay>(
+                  `/api/replay/import?connection_id=${encodeURIComponent(selected!)}`,
+                  {
+                    method: "POST",
+                  },
+                );
                 onLoaded(replay);
                 onClose();
               })

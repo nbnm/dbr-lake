@@ -201,7 +201,8 @@ export function positionAt(
     a.collection_stale_at === null ? at : Math.min(at, a.collection_stale_at);
   const effective = Math.min(clock, a.ended_at ?? Infinity);
   const elapsed = Math.max(0, effective - (a.started_at ?? effective));
-  const predicted = a.estimate.predicted_duration_ms;
+  const recorded = a.replay_duration_ms;
+  const predicted = recorded ?? a.estimate.predicted_duration_ms;
   if (a.kind === "buoy")
     return {
       position: path.from.clone(),
@@ -231,6 +232,17 @@ export function positionAt(
         ),
       heading: -theta,
       holding: true,
+    };
+  }
+  // Completed historical runs use their recorded duration for replay interpolation.
+  // This is elapsed-time illustration, not measured row/byte progress or an ETA.
+  if (recorded) {
+    const progress = Math.min(1, elapsed / recorded);
+    const tangent = path.curve.getTangentAt(progress);
+    return {
+      position: path.curve.getPointAt(progress),
+      heading: Math.atan2(tangent.x, tangent.z),
+      holding: false,
     };
   }
   const travelMs = predicted * 0.9;

@@ -374,7 +374,7 @@ input[type="checkbox"] {
 .lake-stage
   > div:not(.summary-strip):not(.scene-topnote):not(.scene-legend):not(
     .camera-controls
-  ) {
+  ):not(.scene-toolbar) {
   width: 100%;
   height: 100%;
 }
@@ -2727,5 +2727,264 @@ button.external-source > svg:last-child {
 @media (prefers-reduced-motion: reduce) {
   .config-busy svg {
     animation: none;
+  }
+}
+
+/* Keep the diorama central; controls appear only when requested. */
+.focus-mode {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.focus-mode .app-body {
+  width: 100%;
+  margin-left: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.focus-mode .topbar {
+  height: 58px;
+  flex-shrink: 0;
+  padding: 0 22px;
+  gap: 18px;
+}
+.focus-mode .wordmark {
+  font-size: 23px;
+}
+.focus-mode .header-right {
+  display: flex;
+  gap: 15px;
+}
+.focus-mode .topbar-divider,
+.focus-mode .account-context,
+.focus-mode .search,
+.focus-mode .avatar,
+.focus-mode .page-heading,
+.focus-mode .filterbar,
+.focus-mode .capture-history-note,
+.focus-mode .app-footer {
+  display: none;
+}
+.focus-mode.navigation-open .app-body {
+  margin-left: 66px;
+  width: calc(100% - 66px);
+}
+.focus-mode.navigation-open .filterbar {
+  display: flex;
+  padding: 12px 22px;
+  flex-shrink: 0;
+}
+.focus-mode.navigation-open .search {
+  display: flex;
+  margin-left: 0;
+}
+.focus-mode .workspace {
+  position: relative;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.focus-mode .main-workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.focus-mode .lake-stage {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border: 0;
+}
+.ambient-replay-time {
+  font-size: 11px;
+  color: #64766b;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.scene-toolbar {
+  position: absolute;
+  bottom: 18px;
+  left: 22px;
+  display: flex;
+  gap: 7px;
+  z-index: 35;
+}
+.scene-toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #cbd5c7;
+  border-radius: 7px;
+  background: #fafbf4ef;
+  box-shadow: 0 2px 6px #3047380a;
+  font-size: 11px;
+}
+.scene-toolbar .ambient-play {
+  width: 38px;
+  padding: 0;
+  justify-content: center;
+}
+.scene-toolbar button:hover {
+  background: #fffdf5;
+  border-color: #a4b49e;
+}
+.focus-mode .camera-controls {
+  bottom: 18px;
+  right: 22px;
+}
+.focus-mode .activity-section {
+  flex: 0 1 164px;
+  min-height: 100px;
+  overflow: auto;
+}
+.focus-mode .main-workspace > .activity-section:first-child {
+  flex: 1;
+}
+.focus-mode .playback {
+  flex-shrink: 0;
+  padding: 12px 22px 16px;
+}
+.inspection-drawer {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 350px;
+  max-width: 100%;
+  z-index: 45;
+  background: var(--paper);
+  box-shadow: -7px 0 25px #30473810;
+}
+.focus-mode .inspector {
+  height: 100%;
+  max-height: none;
+}
+.close-inspector {
+  position: absolute;
+  top: 7px;
+  right: 10px;
+  z-index: 2;
+  background: #fdfdf9;
+}
+.inspection-drawer .panel-heading {
+  padding-right: 52px;
+}
+.antares-logo {
+  display: flex;
+  padding: 7px 10px;
+  background: #fcfcf4f2;
+  border: 1px solid #c6d1c3;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px #344f3810;
+}
+.antares-logo img {
+  display: block;
+  width: 98px;
+  height: 20px;
+}
+.antares-logo:hover {
+  background: #fff;
+  border-color: #9fac9a;
+}
+.task-history-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.task-history-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+@media (max-width: 700px) {
+  .focus-mode .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .focus-mode .wordmark {
+    font-size: 20px;
+  }
+  .focus-mode .wordmark span {
+    display: none;
+  }
+  .focus-mode .header-right {
+    gap: 8px;
+  }
+  .focus-mode .demo-pill {
+    font-size: 8px;
+    padding: 5px 6px;
+    gap: 4px;
+  }
+  .ambient-replay-time {
+    font-size: 9px;
+  }
+  .focus-mode.navigation-open .search {
+    display: none;
+  }
+  .focus-mode.navigation-open .filterbar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+  .focus-mode .scope-filters {
+    flex-wrap: wrap;
+  }
+  .focus-mode .scene-toolbar {
+    left: 12px;
+    bottom: 12px;
+  }
+  .focus-mode .camera-controls {
+    right: 12px;
+    bottom: 12px;
+  }
+  .focus-mode .playback {
+    padding: 10px 12px 14px;
+  }
+  .focus-mode .timeline-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .focus-mode .timeline-track {
+    flex-basis: calc(100% - 40px);
+  }
+  .focus-mode .activity-section {
+    flex-basis: 145px;
+  }
+  .focus-mode .summary-strip {
+    left: 12px;
+    top: 12px;
+    gap: 5px;
+  }
+  .focus-mode .summary {
+    min-width: 85px;
+    padding: 8px;
+  }
+  .focus-mode .scene-topnote {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .focus-mode.navigation-open .ambient-replay-time {
+    display: none;
+  }
+  .focus-mode .landmark-link {
+    font-size: 8px;
+    padding: 5px 7px;
+    gap: 4px;
+  }
+  .focus-mode .antares-logo {
+    padding: 5px 7px;
+  }
+  .focus-mode .antares-logo img {
+    width: 72px;
+    height: 15px;
   }
 }
