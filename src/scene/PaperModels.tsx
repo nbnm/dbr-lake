@@ -1,4 +1,12 @@
-import { BufferGeometry, Color, Float32BufferAttribute } from "three";
+import {
+  Box3,
+  BoxGeometry,
+  BufferGeometry,
+  Color,
+  Float32BufferAttribute,
+  MeshBasicMaterial,
+  Vector3,
+} from "three";
 import { Line } from "@react-three/drei";
 import type { Point } from "../layout";
 
@@ -95,9 +103,33 @@ const plane = paperGeometry(
   ],
 );
 
+function selectionBox(geometries: BufferGeometry[]) {
+  const bounds = new Box3();
+  for (const geometry of geometries) {
+    geometry.computeBoundingBox();
+    bounds.union(geometry.boundingBox!);
+  }
+  const size = bounds.getSize(new Vector3()).multiplyScalar(2);
+  const center = bounds.getCenter(new Vector3());
+  return new BoxGeometry(size.x, size.y, size.z).translate(
+    center.x,
+    center.y,
+    center.z,
+  );
+}
+const shipSelectionBox = selectionBox([hull, fold]);
+const planeSelectionBox = selectionBox([plane]);
+// Hidden materials skip rendering while their meshes remain raycast targets.
+const selectionMaterial = new MeshBasicMaterial({ visible: false });
+
 export function PaperShip({ tint }: { tint: string }) {
   return (
     <group scale={0.9}>
+      <mesh
+        name="ship-hitbox"
+        geometry={shipSelectionBox}
+        material={selectionMaterial}
+      />
       <mesh geometry={hull}>
         <meshStandardMaterial
           color={tint}
@@ -138,6 +170,11 @@ export function PaperShip({ tint }: { tint: string }) {
 export function PaperPlane({ tint }: { tint: string }) {
   return (
     <group scale={0.86}>
+      <mesh
+        name="plane-hitbox"
+        geometry={planeSelectionBox}
+        material={selectionMaterial}
+      />
       <mesh geometry={plane}>
         <meshStandardMaterial
           color={tint}
