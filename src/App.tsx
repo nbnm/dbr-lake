@@ -725,11 +725,11 @@ export default function App() {
                     </div>
                   </section>
                 )}
-                {(controls || view === "list") && (
+                {view === "list" && (
                   <>
                     {" "}
                     <section
-                      className={`activity-section ${view === "list" ? "expanded" : ""}`}
+                      className="activity-section expanded"
                       aria-label="Task activity"
                     >
                       <div className="activity-heading">
@@ -748,11 +748,9 @@ export default function App() {
                           )}
                           <button
                             className="text-button"
-                            onClick={() =>
-                              setView(view === "lake" ? "list" : "lake")
-                            }
+                            onClick={() => setView("lake")}
                           >
-                            {view === "lake" ? "Expand list" : "Back to lake"}
+                            Back to lake
                             <ArrowUpRight size={13} />
                           </button>
                         </div>

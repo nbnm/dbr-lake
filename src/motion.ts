@@ -18,6 +18,10 @@ import {
 import { cruiseHeight, PORT_ROW_SPACING, vesselKey } from "./navigation";
 import { BUOY_SHORE_INSET, SHIP_SHORE_INSET, openWater } from "./wildlife";
 import { externalAirportName, flightTableIds, isExport } from "./vessels";
+import {
+  PLANE_APRON_ROW_SPACING,
+  PLANE_APRON_COLUMN_SPACING,
+} from "./vesselSize";
 
 function roundedPath(points: Vector3[]) {
   const curve = new CurvePath<Vector3>();
@@ -98,10 +102,13 @@ export function makePath(
   from.y = airport ? airport.departure[1] : height;
   if (airport) {
     const launch = slot?.launch ?? Math.max(0, targets.indexOf(landingId));
-    from.z -= (launch % 3) * 1.8;
+    from.z -= (launch % 3) * PLANE_APRON_ROW_SPACING;
     const column = Math.floor(launch / 3);
     if (column)
-      from.x += airport.side * (column * 1.9 + (airport.side === 1 ? 1.9 : 0));
+      from.x +=
+        airport.side *
+        (column * PLANE_APRON_COLUMN_SPACING +
+          (airport.side === 1 ? PLANE_APRON_COLUMN_SPACING : 0));
   }
   // Harbor routes already form a loop for tasks reading and writing one table.
   // The generic fallback offset could otherwise push their launch into shore lanes.

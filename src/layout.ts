@@ -12,6 +12,7 @@ import {
 import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
 import { dockShoreInset, shoreFrame, shoreRadius } from "./shoreline";
+import { PLANE_APRON_COLUMN_SPACING } from "./vesselSize";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -514,7 +515,9 @@ export function buildLakeLayout(
         .filter(([key]) => source.attempt_ids.includes(JSON.parse(key)[0]))
         .map(([, slot]) => slot.launch);
       const columns = Math.floor(Math.max(0, ...launches) / 3);
-      const apronExtra = columns * 1.9 + (side === 1 && columns > 0 ? 1.9 : 0);
+      const apronExtra =
+        columns * PLANE_APRON_COLUMN_SPACING +
+        (side === 1 && columns > 0 ? PLANE_APRON_COLUMN_SPACING : 0);
       return {
         ...source,
         center,
