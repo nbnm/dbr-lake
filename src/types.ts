@@ -21,6 +21,7 @@ export interface LakeObject {
   position: [number, number, number];
   workspace_ids: string[];
   type: "table" | "view";
+  provenance?: string;
 }
 export interface Estimate {
   predicted_duration_ms: number | null;

@@ -78,8 +78,7 @@ export function schemaId(
     .join("/");
 }
 
-// Use the capture's inventory, never a filtered or time-dependent activity list.
-// Airports and berths therefore stay in place when seeking or filtering.
+// Use the complete capture, never the current time or filtered activity list.
 export function captureAttempts(replay: Replay): Attempt[] {
   const attempts = new Map<string, Attempt>();
   const add = (a: Attempt) =>
@@ -89,6 +88,36 @@ export function captureAttempts(replay: Replay): Attempt[] {
     if (event.type === "attempt.upsert")
       add(event.payload as unknown as Attempt);
   return [...attempts.values()];
+}
+
+export function buildReplayLakeLayout(replay: Replay): LakeLayout {
+  const attempts = captureAttempts(replay);
+  const referenced = new Set<string>();
+  const include = (a: Attempt) => {
+    if (a.route.evidence !== "unknown")
+      [...a.route.source_ids, ...a.route.target_ids].forEach((id) =>
+        referenced.add(id),
+      );
+  };
+  replay.checkpoint.attempts.forEach(include);
+  for (const e of replay.events)
+    if (e.type === "attempt.upsert") include(e.payload as unknown as Attempt);
+  const usedSchemas = new Set(
+    replay.checkpoint.objects
+      .filter(
+        (o) =>
+          referenced.has(o.id) ||
+          o.provenance === "system.access.table_lineage",
+      )
+      .map(schemaId),
+  );
+  // Lineage also records reads and ad hoc activity without a job-run route.
+  // Keep each used schema's full table inventory, while omitting unused piers
+  // and catalog-only entries. The stored capture remains complete.
+  return buildLakeLayout(
+    replay.checkpoint.objects.filter((o) => usedSchemas.has(schemaId(o))),
+    attempts,
+  );
 }
 
 export function buildLakeLayout(

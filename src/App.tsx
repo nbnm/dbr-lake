@@ -30,12 +30,7 @@ import type { Replay, Selection, StatusFilter } from "./types";
 import type { CameraAction } from "./LakeScene";
 import { duration, elapsed, isOverdue, reconstruct, timestamp } from "./state";
 import Inspector, { StatusBadge } from "./Inspector";
-import {
-  buildLakeLayout,
-  captureAttempts,
-  catalogId,
-  schemaId,
-} from "./layout";
+import { buildReplayLakeLayout, catalogId, schemaId } from "./layout";
 import Configuration from "./Configuration";
 import { selectedDestination } from "./vessels";
 
@@ -157,14 +152,7 @@ export default function App() {
     [replay, at],
   );
   const layout = useMemo(
-    () =>
-      replay
-        ? buildLakeLayout(
-            replay.checkpoint.objects,
-            captureAttempts(replay),
-            replay.checkpoint.inventory,
-          )
-        : null,
+    () => (replay ? buildReplayLakeLayout(replay) : null),
     [replay],
   );
   const scoped = useMemo(
@@ -616,7 +604,7 @@ export default function App() {
                     {captions && (
                       <>
                         <div className="scene-topnote">
-                          <span title="Lake size follows the complete inventory. Filters preserve positions.">
+                          <span title="Only schemas used in this capture's lineage or routes appear on the lake. Filters preserve positions.">
                             {layout?.docks.length ?? 0} catalogs ·{" "}
                             {layout?.piers.length ?? 0} schemas ·{" "}
                             {layout?.objects.length ?? 0} tables ·{" "}
