@@ -171,6 +171,33 @@ def test_single_connection_joins_parent_lineage_keeps_workspace_ids_and_native_l
     assert 'secret=hidden' not in json.dumps(capture)
 
 
+@pytest.mark.parametrize('extra_destination, mixed_table_target', [(False, False), (True, False), (False, True)])
+def test_export_lineage_uses_outbound_path_without_inventing_ambiguous_flights(extra_destination, mixed_table_target):
+    data = data_fixture()
+    launch = START + 600_000
+    route = lineage('100', launch + 60_000, source='input', target=None)
+    route.update(target_type='PATH', target_path='https://user:password@exports.example/batches?token=secret#private')
+    data['lineage'] = [route]
+    if extra_destination:
+        data['lineage'].append({**route, 'record_id': 'other-export', 'target_path': 's3://other-bucket/export'})
+    if mixed_table_target:
+        data['lineage'].append(lineage('100', launch + 70_000, source='input'))
+    reader = fixture_reader(data)
+    capture = build_system_capture(SETTINGS, SECRET, END, reader)
+    attempt = next(a for a in scene_at(capture, END)['attempts'] if a['workspace_id'] == '1')
+    assert any('target_path' in sql for key, sql, _ in reader.statements if key == 'lineage')
+    assert attempt['route']['external_source'] is None
+    if extra_destination or mixed_table_target:
+        assert attempt['kind'] == 'buoy' and attempt['route']['external_target'] is None
+    else:
+        assert attempt['kind'] == 'plane'
+        assert attempt['route']['external_target'] == 'https://exports.example'
+        assert attempt['route']['source_ids'] == ['meta:sales.raw.input']
+        assert not attempt['route']['target_ids']
+        assert attempt['native_url'] == f'{SETTINGS["host"]}/jobs/10/runs/100?o=1'
+    assert all(secret not in json.dumps(capture) for secret in ('password', 'token=secret', '#private'))
+
+
 def test_workspace_directory_resolves_native_links_with_actual_directory_schema():
     data = data_fixture()
     columns = {'account_id', 'workspace_id', 'workspace_name', 'workspace_url', 'create_time', 'status'}

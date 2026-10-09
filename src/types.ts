@@ -38,6 +38,7 @@ export interface Route {
   source_ids: string[];
   target_ids: string[];
   external_source: string | null;
+  external_target?: string | null;
   source_record_ids: string[];
   observed_at: number;
 }

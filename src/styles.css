@@ -1122,6 +1122,10 @@ button.external-source > svg:last-child {
   color: #789d94;
   background: #e9f0e8;
 }
+.task-type.export {
+  color: #a1824e;
+  background: #f4ecda;
+}
 .task-type.buoy {
   color: #b09b6c;
   background: #f4f0e2;

@@ -190,7 +190,7 @@ def build_system_capture(settings, token, end, reader_factory=SystemTablesReader
         runs = reader.query(timeline_query(), params)
         tasks = reader.query(timeline_query(True), params)
         lineage = reader.query('''SELECT /* lake:lineage */ account_id, workspace_id, metastore_id, record_id,
-            entity_type, entity_id, entity_run_id, source_type, source_path, target_type,
+            entity_type, entity_id, entity_run_id, source_type, source_path, target_type, target_path,
             source_table_catalog, source_table_schema, source_table_name,
             target_table_catalog, target_table_schema, target_table_name,
             unix_millis(event_time) AS event_ms,
@@ -280,14 +280,18 @@ def build_system_capture(settings, token, end, reader_factory=SystemTablesReader
             sources = sorted({r['source_id'] for r in evidence if r.get('source_id')})
             targets = sorted({r['target_id'] for r in evidence if r.get('target_id')})
             external = {external_name(r['source_path']) for r in evidence if not r.get('source_id') and r.get('source_type') == 'PATH' and r.get('source_path') and r.get('target_id')}
-            airport = next(iter(external)) if len(external) == 1 else None
-            kind = 'plane' if airport and targets and not sources else 'ship' if len(sources) == 1 and targets and not external else 'buoy'
+            outbound = {external_name(r['target_path']) for r in evidence if not r.get('target_id') and r.get('target_type') == 'PATH' and r.get('target_path') and r.get('source_id')}
+            incoming = len(external) == 1 and targets and not sources and not outbound
+            outgoing = len(outbound) == 1 and len(sources) == 1 and not targets and not external
+            airport = next(iter(external)) if incoming else None
+            destination = next(iter(outbound)) if outgoing else None
+            kind = 'plane' if incoming or outgoing else 'ship' if len(sources) == 1 and targets and not external and not outbound else 'buoy'
             definitions = [j for j in jobs if str(j['account_id']) == account and str(j['workspace_id']) == ws and str(j['job_id']) == job and integer(j['change_ms']) <= launched]
             definition = max(definitions, key=lambda j: integer(j['change_ms']), default={})
             signature = hashlib.sha256(json.dumps([account, ws, job, definition.get('change_ms')]).encode()).hexdigest()
             host = workspace_host(registry.get(ws, {}).get('workspace_url'))
             route = Route(version=f'{capture_id}:lineage', evidence='historical' if evidence else 'unknown',
-                source_ids=sources, target_ids=targets, external_source=airport,
+                source_ids=sources, target_ids=targets, external_source=airport, external_target=destination,
                 source_record_ids=sorted({str(r['record_id']) for r in evidence}),
                 observed_at=max((integer(r['event_ms']) for r in evidence), default=end), provenance='system.access.table_lineage').model_dump()
             records.append(dict(id=json.dumps([account, ws, job, run, ordinal], separators=(',', ':')),

@@ -32,7 +32,7 @@ import { duration, elapsed, isOverdue, reconstruct, timestamp } from "./state";
 import Inspector, { StatusBadge } from "./Inspector";
 import { buildReplayLakeLayout, catalogId, schemaId } from "./layout";
 import Configuration from "./Configuration";
-import { selectedDestination } from "./vessels";
+import { isExport, selectedDestination } from "./vessels";
 
 const LakeScene = lazy(() => import("./LakeScene"));
 
@@ -178,6 +178,7 @@ export default function App() {
       a.task_key,
       a.run_id,
       a.route.external_source,
+      a.route.external_target,
       ...a.route.source_ids,
       ...a.route.target_ids,
     ]
@@ -757,9 +758,15 @@ export default function App() {
                                         select({ type: "attempt", id: a.id })
                                       }
                                     >
-                                      <span className={`task-type ${a.kind}`}>
+                                      <span
+                                        className={`task-type ${a.kind}${isExport(a) ? " export" : ""}`}
+                                      >
                                         {a.kind === "plane" ? (
-                                          <ArrowDownLeft size={17} />
+                                          isExport(a) ? (
+                                            <ArrowUpRight size={17} />
+                                          ) : (
+                                            <ArrowDownLeft size={17} />
+                                          )
                                         ) : a.kind === "ship" ? (
                                           <Ship size={17} />
                                         ) : (
@@ -769,9 +776,11 @@ export default function App() {
                                       <span>
                                         <strong>{a.name}</strong>
                                         <small>
-                                          {a.route.target_ids[0]
-                                            ?.split(":")
-                                            .pop() ?? "Route unknown"}
+                                          {isExport(a)
+                                            ? `${a.route.source_ids[0]?.split(":").pop() ?? "Source table"} → ${a.route.external_target}`
+                                            : (a.route.target_ids[0]
+                                                ?.split(":")
+                                                .pop() ?? "Route unknown")}
                                         </small>
                                       </span>
                                     </button>

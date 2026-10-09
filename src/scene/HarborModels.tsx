@@ -326,6 +326,9 @@ export function Airport({
         : -0.5 + Math.sin(clock.current / 7000) * 0.16;
   });
   const active = selected.type === "airport" && selected.id === airport.id;
+  const exporting = airport.role === "export";
+  const tableCount = (exporting ? airport.source_ids : airport.target_ids)
+    .length;
   return (
     <group
       position={airport.center}
@@ -429,14 +432,14 @@ export function Airport({
       >
         <button
           className={`dock-label airport-label ${active ? "selected" : ""}`}
-          aria-label={`External source ${airport.name} Airport · ${airport.target_ids.length} destination ${airport.target_ids.length === 1 ? "berth" : "berths"}`}
+          aria-label={`External ${exporting ? "destination" : "source"} ${airport.name} Airport · ${tableCount} ${exporting ? "source" : "destination"} ${tableCount === 1 ? "berth" : "berths"}`}
           onClick={() => onSelect({ type: "airport", id: airport.id })}
         >
-          <span>External source</span>
+          <span>{exporting ? "Export destination" : "External source"}</span>
           <strong>{airport.name}</strong>
           <small>
-            Airport · {airport.target_ids.length} destination{" "}
-            {airport.target_ids.length === 1 ? "berth" : "berths"}
+            Airport · {tableCount} {exporting ? "source" : "destination"}{" "}
+            {tableCount === 1 ? "berth" : "berths"}
           </small>
         </button>
       </Label>

@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Attempt, LakeObject } from "./types";
 import { buildLakeLayout } from "./layout";
 import { makePath, positionAt } from "./motion";
-import { expandVessels, flightSelection, selectedDestination } from "./vessels";
+import {
+  expandVessels,
+  flightSelection,
+  flightTableIds,
+  selectedDestination,
+} from "./vessels";
 import { jobRunLink, lakeAttemptLink, resolveJobRun } from "./runLinks";
 
 const objects: LakeObject[] = ["orders", "clickstream", "payments"].map(
@@ -59,6 +64,93 @@ const layout = buildLakeLayout(objects, [plane]);
 const paths = plane.route.target_ids.map((id) =>
   makePath(plane, layout.objects, layout.airports, layout.piers, id),
 );
+
+describe("outbound export flights", () => {
+  const outbound: Attempt = {
+    ...plane,
+    id: "export",
+    name: "Export orders",
+    replay_duration_ms: 100000,
+    route: {
+      ...plane.route,
+      external_source: null,
+      external_target: "Partner API",
+      source_ids: [objects[0].id],
+      target_ids: [],
+    },
+  };
+  it("departs from the selected source berth, crosses open water and lands at the external airport", () => {
+    const lake = buildLakeLayout(objects, [plane, outbound]);
+    const source = lake.objects.find((o) => o.id === objects[0].id)!;
+    const airport = lake.airports.find((p) => p.role === "export")!;
+    expect(airport.source_ids).toEqual([source.id]);
+    expect(airport.target_ids).toEqual([]);
+    const instance = expandVessels([outbound])[0];
+    expect(instance.destinationId).toBe(source.id);
+    const path = makePath(
+      outbound,
+      lake.objects,
+      lake.airports,
+      lake.piers,
+      instance.destinationId,
+      lake,
+    );
+    expect(path.from.x).toBe(source.position[0]);
+    expect(Math.abs(path.from.z)).toBeLessThan(lake.water.halfDepth);
+    expect(path.to.toArray()).toEqual(airport.departure);
+    expect(positionAt(outbound, path, 1000).position.toArray()).toEqual(
+      path.from.toArray(),
+    );
+    expect(positionAt(outbound, path, 51000).position.y).toBeGreaterThan(3);
+    expect(
+      positionAt(
+        { ...outbound, phase: "succeeded", ended_at: 101000 },
+        path,
+        101000,
+      ).position.toArray(),
+    ).toEqual(airport.departure);
+    expect(path.curve.getPointAt(0).toArray()).toEqual(path.from.toArray());
+    expect(path.curve.getPointAt(1).distanceTo(path.to)).toBeLessThan(0.001);
+    const oldPath = makePath(
+      outbound,
+      lake.objects,
+      lake.airports,
+      lake.piers,
+      source.id,
+    );
+    expect(oldPath.curve.getPointAt(0).distanceTo(oldPath.from)).toBeLessThan(
+      0.001,
+    );
+    expect(oldPath.curve.getPointAt(1).distanceTo(oldPath.to)).toBeLessThan(
+      0.001,
+    );
+  });
+  it("reserves source ports and keeps the source selection in job-run links", () => {
+    const other = { ...outbound, id: "another-export", run_id: "another-run" };
+    const lake = buildLakeLayout(objects, [outbound, other]);
+    const flights = expandVessels([outbound, other]);
+    expect(flightTableIds(outbound)).toEqual([objects[0].id]);
+    expect(
+      selectedDestination(outbound, flightSelection(outbound, objects[0].id)),
+    ).toBe(objects[0].id);
+    expect(lake.navigation.slots[flights[0].key].ports[objects[0].id]).not.toBe(
+      lake.navigation.slots[flights[1].key].ports[objects[0].id],
+    );
+    expect(lake.navigation.slots[flights[0].key].launch).not.toBe(
+      lake.navigation.slots[flights[1].key].launch,
+    );
+    const link = jobRunLink(outbound, "demo", 51000, objects[0].id, "demo-v5")!;
+    expect(
+      new URL(link.href, "http://localhost").searchParams.get("destination"),
+    ).toBe(objects[0].id);
+    expect(
+      new URL(
+        lakeAttemptLink(outbound, 51000, objects[0].id, "demo-v5"),
+        "http://localhost",
+      ).searchParams.get("destination"),
+    ).toBe(objects[0].id);
+  });
+});
 
 describe("landing flights", () => {
   it("projects one plane per distinct target without duplicating task executions or mutating routes", () => {

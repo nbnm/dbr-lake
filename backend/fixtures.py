@@ -7,6 +7,8 @@ from .models import Attempt, LakeObject, Route, SceneEvent, Workspace
 BASE = int(datetime(2026, 10, 8, 16, tzinfo=timezone.utc).timestamp() * 1000)
 END = BASE + 86_400_000
 REFERENCE = BASE + 600_000
+CAPTURE_ID = "demo-v5"
+JOB_RUN_COUNT = 80
 SCHEMAS = [
     ("sales", "raw", (-8, 0, -4)), ("sales", "refined", (-8, 0, 4)),
     ("operations", "events", (0, 0, -5)), ("operations", "metrics", (0, 0, 5)),
@@ -48,7 +50,7 @@ def events() -> list[SceneEvent]:
     rows: list[SceneEvent] = []
 
     def add(time: int, typ: str, ws: str, payload: dict, attempt_id: str | None = None):
-        rows.append(SceneEvent(event_id=f"demo-v4:{typ}:{ws}:{attempt_id}:{time}:{len(rows)}",
+        rows.append(SceneEvent(event_id=f"{CAPTURE_ID}:{typ}:{ws}:{attempt_id}:{time}:{len(rows)}",
                                workspace_id=ws, execution_attempt_id=attempt_id,
                                event_time=BASE + time * 1000, observed_at=BASE + time * 1000,
                                type=typ, payload=payload))
@@ -66,6 +68,35 @@ def events() -> list[SceneEvent]:
         ("queued-sessions", "Compact session events", "ws-east", "ship", 660, 300, 1080, "succeeded", ["operations.events.clickstream"], ["operations.metrics.sessions"], "configured", None, 0),
         ("short-run", "Update account balances", "ws-east", "ship", 105, 60, 113, "succeeded", ["finance.ledger.accounts"], ["finance.reporting.balances"], "observed", None, 0),
     ]
+    # Seventy further runs cover all remaining hours. Each hour is a small
+    # pipeline: API landing, table movement, then an export after its inputs land.
+    pipelines = [
+        ("commerce", "Commerce API", ["sales.raw.orders", "sales.raw.customers"], "sales.raw.orders", "sales.refined.orders", "Partner API"),
+        ("inventory", "Supplier API", ["operations.events.inventory"], "operations.events.inventory", "operations.metrics.daily_ops", "BI Warehouse"),
+        ("payments", "Payments API", ["finance.ledger.payments", "finance.ledger.invoices"], "finance.ledger.payments", "finance.reporting.revenue", "Finance Object Storage"),
+        ("customers", "Commerce API", ["sales.raw.customers"], "sales.raw.customers", "sales.refined.customers", "Partner API"),
+        ("shipments", "Supplier API", ["operations.events.shipments"], "operations.events.shipments", "operations.metrics.fulfillment", "BI Warehouse"),
+        ("balances", "Payments API", ["finance.ledger.accounts"], "finance.ledger.accounts", "finance.reporting.balances", "Finance Object Storage"),
+    ]
+    export_destinations = {}
+    for hour in range(1, 24):
+        tag, api, landing, source, target, destination = pipelines[(hour - 1) % len(pipelines)]
+        offset = hour * 3600
+        # Deterministic stagger, varied durations and overlap across hour edges.
+        stagger = ((hour * 37) % 90)
+        ingest_start, transform_start = offset + 90 + stagger, offset + 1080 + stagger
+        transform_finish = transform_start + 1380 + (hour % 3) * 120
+        export_start = transform_finish + 60
+        export_finish = min(export_start + 720 + (hour % 4) * 120, 86_340)
+        specs.extend([
+            (f"api-{tag}-{hour:02}", f"Land {tag} data from {api}", "ws-east" if hour % 2 else "ws-west", "plane", ingest_start, 780, ingest_start + 780, "succeeded", [], landing, "observed", api, 0),
+            (f"move-{tag}-{hour:02}", f"Transform {source} → {target}", "ws-west" if hour % 2 else "ws-east", "ship", transform_start, transform_finish - transform_start, transform_finish, "succeeded", [source], [target], "observed", None, 0),
+            (f"export-{tag}-{hour:02}", f"Export {target} to {destination}", "ws-west", "plane", export_start, export_finish - export_start, export_finish, "cancelled" if hour == 11 else "succeeded", [target], [], "observed", None, 0),
+        ])
+        export_destinations[f"export-{tag}-{hour:02}"] = destination
+    # Bridge the opening examples to the first hourly pipeline: exactly 80
+    # parent runs, plus the payment repair as a separate execution attempt.
+    specs.append(("publish-sales", "Publish daily sales to finance reporting", "ws-east", "ship", 1500, 2400, 3900, "succeeded", ["sales.refined.daily_sales"], ["finance.reporting.forecast"], "observed", None, 0))
     for index, (id, name, ws, kind, start, duration, finish, result, sources, targets, evidence, external, retry) in enumerate(specs):
         signature = f"{ws}:job-{index if not retry else 4}:reconcile:incremental:v1"
         launch = BASE + start * 1000
@@ -77,9 +108,12 @@ def events() -> list[SceneEvent]:
                     task_key=id.replace("-retry", ""), attempt_number=retry, name=name, kind=kind,
                     phase="queued", raw_state="PENDING", started_at=None,
                     observed_at=BASE + (start - 40) * 1000, source_id=f"fixture:task:{id}",
+                    scope="job_run" if index >= 11 else "task_run",
+                    replay_duration_ms=(finish - start) * 1000 if index >= 11 else None,
                     route=Route(version=f"{id}:route-v2", evidence=evidence,
                                 source_ids=[oid(n) for n in sources], target_ids=[oid(n) for n in targets],
-                                external_source=external, source_record_ids=[f"fixture:route:{id}"] if evidence != "unknown" else [],
+                                external_source=external, external_target=export_destinations.get(id),
+                                source_record_ids=[f"fixture:route:{id}"] if evidence != "unknown" else [],
                                 observed_at=launch), estimate=estimate)
         add(start - 40, "attempt.upsert", ws, a.model_dump(), id)
         a.phase, a.raw_state, a.started_at, a.observed_at = "running", "RUNNING", launch, launch
@@ -93,7 +127,7 @@ def events() -> list[SceneEvent]:
             add(900, "attempt.upsert", ws, a.model_dump(), id)
         a.phase, a.raw_state, a.ended_at, a.observed_at = result, result.upper(), BASE + finish * 1000, BASE + finish * 1000
         add(finish, "attempt.upsert", ws, a.model_dump(), id)
-    for t in range(15, 1801, 15):
+    for t in [*range(15, 1801, 15), *range(2100, 86_401, 300)]:
         for ws in ("ws-east", "ws-west", "ws-eu"):
             if ws == "ws-eu" and 515 < t < 900:
                 continue
@@ -102,27 +136,4 @@ def events() -> list[SceneEvent]:
     add(560, "coverage.update", "ws-eu", {"status": "stale", "reason": "Three consecutive polls missed; motion is frozen."})
     add(560, "collection.gap", "ws-eu", {"start": BASE + 515_000, "end": BASE + 900_000,
                                          "reason": "Demo network outage; task state reconciled at recovery."})
-    first_hour = deepcopy(rows)
-    for hour in range(1, 24):
-        offset = hour * 3_600_000
-        for original in first_hour:
-            e = original.model_copy(deep=True)
-            e.event_id = f'{original.event_id}:hour-{hour}'
-            e.event_time += offset
-            e.observed_at += offset
-            if e.execution_attempt_id:
-                e.execution_attempt_id += f':hour-{hour}'
-                e.payload['id'] = e.execution_attempt_id
-                e.payload['run_id'] = str(int(e.payload['run_id']) + hour * 100)
-                e.payload['task_run_id'] = str(int(e.payload['task_run_id']) + hour * 100)
-                for key in ('started_at', 'ended_at', 'observed_at', 'collection_stale_at'):
-                    if e.payload.get(key) is not None: e.payload[key] += offset
-                e.payload['route']['observed_at'] += offset
-            elif e.type == 'coverage.update':
-                for key in ('last_successful_poll', 'lineage_observed_at'):
-                    if e.payload.get(key) is not None: e.payload[key] += offset
-            elif e.type == 'collection.gap':
-                e.payload['start'] += offset
-                e.payload['end'] += offset
-            rows.append(e)
     return sorted(deepcopy(rows), key=lambda e: (e.event_time, e.event_id))

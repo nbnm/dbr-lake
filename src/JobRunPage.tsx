@@ -4,7 +4,7 @@ import type { Snapshot } from "./types";
 import { StatusBadge } from "./Inspector";
 import { duration, elapsed, timestamp } from "./state";
 import { lakeAttemptLink, resolveJobRun } from "./runLinks";
-import { landingDestinations, selectedDestination } from "./vessels";
+import { flightTableIds, isExport, selectedDestination } from "./vessels";
 
 export default function JobRunPage() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -64,7 +64,9 @@ export default function JobRunPage() {
           </strong>
         </a>
         <span className="demo-label">
-          {scene?.mode === "replay" ? "Historical capture" : "Simulated metadata"}
+          {scene?.mode === "replay"
+            ? "Historical capture"
+            : "Simulated metadata"}
         </span>
       </header>
       <main className="run-content">
@@ -100,7 +102,9 @@ export default function JobRunPage() {
             <div className="run-title">
               <div>
                 <div className="eyebrow">
-                  {scene.mode === "demo" ? "Demo job run" : "Historical job run"}
+                  {scene.mode === "demo"
+                    ? "Demo job run"
+                    : "Historical job run"}
                 </div>
                 <h1>Run {a.run_id}</h1>
                 <p>{a.name}</p>
@@ -111,9 +115,10 @@ export default function JobRunPage() {
               </div>
             </div>
             <p className="run-demo-note">
-              {scene.mode === "demo" ? "Simulated execution" : "Imported execution"}
-              {" · "}Snapshot at {timestamp(scene.server_time)}{" "}
-              Toronto time
+              {scene.mode === "demo"
+                ? "Simulated execution"
+                : "Imported execution"}
+              {" · "}Snapshot at {timestamp(scene.server_time)} Toronto time
             </p>
             <dl className="run-summary">
               <div>
@@ -205,7 +210,11 @@ export default function JobRunPage() {
             </section>
             <section className="run-section">
               <div className="run-section-heading">
-                <h2>Landing destinations</h2>
+                <h2>
+                  {isExport(a)
+                    ? "Export source tables"
+                    : "Landing destinations"}
+                </h2>
                 <span>{a.route.evidence} route</span>
               </div>
               {a.route.external_source && (
@@ -214,8 +223,14 @@ export default function JobRunPage() {
                   From {a.route.external_source}
                 </p>
               )}
+              {a.route.external_target && (
+                <p className="run-source">
+                  <Plane size={17} />
+                  To {a.route.external_target}
+                </p>
+              )}
               <div className="run-landings">
-                {landingDestinations(a).map((id) => {
+                {flightTableIds(a).map((id) => {
                   const o = scene.objects.find((o) => o.id === id);
                   return (
                     <a

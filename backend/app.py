@@ -26,8 +26,8 @@ def snapshot(store: EventStore, at: int) -> dict:
             coverage[event.workspace_id].update(event.payload)
         elif event.type == "collection.gap":
             gaps.append({**event.payload, "workspace_id": event.workspace_id})
-    return {"mode": "demo", "capture_id": "demo-v4", "captured_at": fixtures.END, "warnings": [],
-            "history_note": "Simulated 24-hour capture. No Databricks workspace is connected.",
+    return {"mode": "demo", "capture_id": fixtures.CAPTURE_ID, "captured_at": fixtures.END, "warnings": [],
+            "history_note": f"Simulated 24-hour capture: {fixtures.JOB_RUN_COUNT} job runs plus one repair attempt. All job data is invented.",
             "account_id": "t1a-demo", "server_time": at, "cursor": cursor,
             "range": {"start": fixtures.BASE, "end": fixtures.END},
             "objects": [o.model_dump() for o in fixtures.topology()],
@@ -39,7 +39,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         if os.environ.get("LAKE_MODE", "demo") != "demo":
             raise RuntimeError("Live collection is not enabled. Configure and test viewer authorization before adding real metadata.")
-        path = db_path or os.environ.get("LAKE_DB_PATH", ".data/demo-v4.sqlite")
+        path = db_path or os.environ.get("LAKE_DB_PATH", f".data/{fixtures.CAPTURE_ID}.sqlite")
         store = EventStore(path)
         store.append_many(fixtures.events())
         app.state.store = store
@@ -71,7 +71,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         return JSONResponse({'detail': [{'loc': e['loc'], 'msg': e['msg'], 'type': e['type']} for e in exc.errors()]}, status_code=422)
 
     def stored_capture(request, capture=None):
-        if capture == 'demo-v4': return None
+        if capture == fixtures.CAPTURE_ID: return None
         value = request.app.state.repository.capture(capture)
         if capture and value is None: raise HTTPException(404, 'Replay capture not found.')
         return value

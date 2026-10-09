@@ -15,6 +15,7 @@ import {
 } from "./layout";
 import { cruiseHeight, PORT_ROW_SPACING, vesselKey } from "./navigation";
 import { BUOY_SHORE_INSET, SHIP_SHORE_INSET } from "./wildlife";
+import { externalAirportName, flightTableIds, isExport } from "./vessels";
 
 function roundedPath(points: Vector3[]) {
   const curve = new CurvePath<Vector3>();
@@ -47,11 +48,13 @@ export function makePath(
   layout?: Pick<LakeLayout, "water" | "navigation">,
 ) {
   const source = objects.find((o) => o.id === a.route.source_ids[0]);
-  const targets = [...new Set(a.route.target_ids)];
+  const exporting = isExport(a);
+  const targets = flightTableIds(a);
   const landingId =
     destinationId && targets.includes(destinationId)
       ? destinationId
       : targets[0];
+  // For an export the table endpoint is the departure, then the air route reverses.
   const target = objects.find((o) => o.id === landingId);
   const slot = layout?.navigation.slots[vesselKey(a, destinationId)];
   const lane = slot?.lane ?? Math.max(0, targets.indexOf(landingId));
@@ -74,7 +77,7 @@ export function makePath(
     a.kind === "plane"
       ? airports.find(
           (p) =>
-            p.name === a.route.external_source && p.attempt_ids.includes(a.id),
+            p.name === externalAirportName(a) && p.attempt_ids.includes(a.id),
         )
       : undefined;
   const from = airport
@@ -137,7 +140,25 @@ export function makePath(
       ),
     );
     const descent = approach.clone().addScaledVector(dir, -3).setY(cruise);
-    curve = roundedPath([from, inland, entry, descent, approach, end]);
+    const points = [
+      from.clone(),
+      inland,
+      entry,
+      descent,
+      approach,
+      end.clone(),
+    ];
+    if (exporting) {
+      const runway = from.clone();
+      from.copy(end);
+      to.copy(runway);
+      end.copy(runway);
+      dir.set(0, 0, -1);
+      side.set(1, 0, 0);
+      curve = roundedPath(points.reverse());
+    } else {
+      curve = roundedPath(points);
+    }
   } else if (sourceDock && targetDock && layout && a.kind === "ship") {
     // Every ship clears the fingers before turning onto its reserved water lane.
     const laneZ = (lane - (layout.navigation.lanes.ship - 1) / 2) * 1.8;
@@ -172,6 +193,20 @@ export function makePath(
     }
     curve = new CubicBezierCurve3(from, takeoff, approach, end);
     curve.arcLengthDivisions = 1000;
+  }
+  if (exporting && airport && !layout && curve instanceof CubicBezierCurve3) {
+    curve = new CubicBezierCurve3(
+      curve.v3.clone(),
+      curve.v2.clone(),
+      curve.v1.clone(),
+      curve.v0.clone(),
+    );
+    const runway = from.clone();
+    from.copy(end);
+    to.copy(runway);
+    end.copy(runway);
+    dir.set(0, 0, -1);
+    side.set(1, 0, 0);
   }
   const unknownCenter = from.clone();
   if (airport) unknownCenter.y = cruiseHeight(lane);

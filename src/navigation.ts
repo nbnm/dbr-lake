@@ -1,5 +1,5 @@
 import type { Attempt, LakeObject } from "./types";
-import { expandVessels } from "./vessels";
+import { expandVessels, externalAirportName, isExport } from "./vessels";
 
 export const BERTH_SPACING = 1.8;
 export const PORT_ROW_SPACING = 1.9;
@@ -86,7 +86,7 @@ export function buildNavigation(
       launch:
         a.kind === "plane"
           ? reserve(
-              `apron:${a.account_id}:${a.route.external_source}`,
+              `apron:${a.account_id}:${isExport(a) ? "out" : "in"}:${externalAirportName(a)}`,
               start,
               end,
             )

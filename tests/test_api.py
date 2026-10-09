@@ -2,7 +2,7 @@ import pytest
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 from backend.app import create_app, snapshot
-from backend.fixtures import BASE, END, REFERENCE, events
+from backend.fixtures import BASE, END, REFERENCE, CAPTURE_ID, events
 from backend.store import EventStore
 from backend.models import SceneEvent
 
@@ -99,6 +99,47 @@ def test_replay_is_deterministic_and_does_not_show_future_terminal(client):
     assert response['checkpoint'] == client.get('/api/scene').json()
     assert all(e['event_time'] > REFERENCE for e in response['events'])
     assert next(a for a in response['checkpoint']['attempts'] if a['id'] == 'refine-orders')['phase'] == 'running'
+
+
+def test_eighty_simulated_job_runs_cover_the_day_with_supported_data_flows(client):
+    replay = client.get('/api/replay', params={'capture': CAPTURE_ID}).json()
+    assert replay['mode'] == replay['checkpoint']['mode'] == 'demo'
+    assert replay['checkpoint']['capture_id'] == CAPTURE_ID
+    assert 'All job data is invented' in replay['checkpoint']['history_note']
+    final = client.get('/api/scene', params={'capture': CAPTURE_ID, 'at': END}).json()
+    attempts = final['attempts']
+    assert len({(a['workspace_id'], a['job_id'], a['run_id']) for a in attempts}) == 80
+    assert len(attempts) == 81  # A repair is not another parent run.
+    assert {(a['started_at'] - BASE) // 3_600_000 for a in attempts} == set(range(24))
+    assert all(BASE <= a['started_at'] < a['ended_at'] <= END for a in attempts)
+    known = {o['id'] for o in final['objects']}
+    incoming = [a for a in attempts if a['route']['external_source']]
+    outgoing = [a for a in attempts if a['route']['external_target']]
+    assert len(incoming) == 25 and len(outgoing) == 23
+    assert any('API' in a['route']['external_source'] for a in incoming)
+    assert all(a['kind'] == 'plane' and a['route']['target_ids'] and not a['route']['source_ids'] for a in incoming)
+    assert all(a['kind'] == 'plane' and a['route']['source_ids'] and not a['route']['target_ids'] for a in outgoing)
+    for a in attempts:
+        assert set(a['route']['source_ids'] + a['route']['target_ids']) <= known
+        if a['kind'] == 'ship':
+            assert a['route']['source_ids'] and a['route']['target_ids']
+    assert replay == client.get('/api/replay', params={'capture': CAPTURE_ID}).json()
+
+
+def test_simulated_pipelines_land_transform_and_export_in_order(client):
+    for hour in (1, 12, 23):
+        scene = client.get('/api/scene', params={'capture': CAPTURE_ID, 'at': END}).json()
+        pipeline = [a for a in scene['attempts'] if a['id'].endswith(f'-{hour:02}')]
+        incoming = next(a for a in pipeline if a['route']['external_source'])
+        transfer = next(a for a in pipeline if a['kind'] == 'ship')
+        export = next(a for a in pipeline if a['route']['external_target'])
+        assert incoming['ended_at'] < transfer['started_at'] < transfer['ended_at'] < export['started_at']
+        assert transfer['route']['source_ids'][0] in incoming['route']['target_ids']
+        assert export['route']['source_ids'] == transfer['route']['target_ids']
+        midpoint = export['started_at'] + export['replay_duration_ms'] // 2
+        running = client.get(f'/api/attempts/{export["id"]}', params={'capture': CAPTURE_ID, 'at': midpoint}).json()
+        assert running['phase'] == 'running' and running['ended_at'] is None
+        assert running['replay_duration_ms'] == export['ended_at'] - export['started_at']
 
 
 def test_event_pagination_has_no_duplicates(client):

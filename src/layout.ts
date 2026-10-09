@@ -8,6 +8,7 @@ import {
   type NavigationLayout,
 } from "./navigation";
 import { t1aBackdropBounds, zeppelinBounds } from "./landmarks";
+import { externalAirportName, isExport } from "./vessels";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -45,6 +46,8 @@ export interface AirportLayout {
   attempt_ids: string[];
   workspace_ids: string[];
   target_ids: string[];
+  source_ids: string[];
+  role: "ingestion" | "export";
 }
 export interface LakeLayout {
   objects: LakeObject[];
@@ -244,24 +247,31 @@ export function buildLakeLayout(
     Omit<AirportLayout, "center" | "departure" | "side" | "apronExtra">
   >();
   for (const a of attempts) {
-    if (
-      a.kind !== "plane" ||
-      !a.route.external_source ||
-      a.route.evidence === "unknown"
-    )
+    const external = externalAirportName(a);
+    const exporting = isExport(a);
+    if (a.kind !== "plane" || !external || a.route.evidence === "unknown")
       continue;
-    const target = byId.get(a.route.target_ids[0]);
+    const target = byId.get(
+      (exporting ? a.route.source_ids : a.route.target_ids)[0],
+    );
     const scope = target?.metastore_id ?? a.workspace_id;
-    const id = ["external", a.account_id, scope, a.route.external_source]
+    const id = [
+      exporting ? "external-export" : "external",
+      a.account_id,
+      scope,
+      external,
+    ]
       .map(encodeURIComponent)
       .join("/");
     const source = sources.get(id) ?? {
       id,
-      name: a.route.external_source,
+      name: external,
       scope,
+      role: exporting ? ("export" as const) : ("ingestion" as const),
       attempt_ids: [],
       workspace_ids: [],
       target_ids: [],
+      source_ids: [],
     };
     source.attempt_ids = [...new Set([...source.attempt_ids, a.id])];
     source.workspace_ids = [
@@ -269,6 +279,9 @@ export function buildLakeLayout(
     ];
     source.target_ids = [
       ...new Set([...source.target_ids, ...a.route.target_ids]),
+    ];
+    source.source_ids = [
+      ...new Set([...source.source_ids, ...a.route.source_ids]),
     ];
     sources.set(id, source);
   }

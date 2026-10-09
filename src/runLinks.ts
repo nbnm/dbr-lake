@@ -1,4 +1,5 @@
 import type { Attempt, Snapshot } from "./types";
+import { flightTableIds } from "./vessels";
 
 export interface RunLink {
   href: string;
@@ -35,7 +36,7 @@ export function jobRunLink(
     at: String(Math.floor(at)),
   });
   if (captureId) params.set("capture", captureId);
-  if (destinationId && a.route.target_ids.includes(destinationId))
+  if (destinationId && flightTableIds(a).includes(destinationId))
     params.set("destination", destinationId);
   return { href: `/?${params}`, label: "Open demo job run", external: false };
 }
@@ -51,7 +52,7 @@ export function lakeAttemptLink(
     at: String(Math.floor(at)),
   });
   if (captureId) params.set("capture", captureId);
-  if (destinationId && a.route.target_ids.includes(destinationId))
+  if (destinationId && flightTableIds(a).includes(destinationId))
     params.set("destination", destinationId);
   return `/?${params}`;
 }

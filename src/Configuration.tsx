@@ -431,12 +431,12 @@ export default function Configuration({
           disabled={!!busy}
           onClick={() =>
             action("Loading sample capture", async () => {
-              onLoaded(await api<Replay>("/api/replay?capture=demo-v4"));
+              onLoaded(await api<Replay>("/api/replay?capture=demo-v5"));
               onClose();
             })
           }
         >
-          Use simulated 24-hour replay
+          Simulate 80 job runs · 24 hours
         </button>
         {busy && (
           <div className="config-busy" role="status">

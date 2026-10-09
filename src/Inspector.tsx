@@ -17,7 +17,8 @@ import { duration, elapsed, status, timestamp } from "./state";
 import { catalogId, schemaId, type AirportLayout } from "./layout";
 import {
   flightSelection,
-  landingDestinations,
+  flightTableIds,
+  isExport,
   selectedDestination,
 } from "./vessels";
 import { JobRunAction } from "./JobRunAction";
@@ -191,35 +192,59 @@ export default function Inspector({
             <div className="object-icon plane">
               <Plane size={22} />
             </div>
-            <div className="eyebrow">Source airport</div>
+            <div className="eyebrow">
+              {airport.role === "export" ? "Export airport" : "Source airport"}
+            </div>
             <h2>{airport.name}</h2>
             <p>
-              External ingestion departs here for its destination table berths.
+              {airport.role === "export"
+                ? "Exports depart from their source table berths and land here."
+                : "External ingestion departs here for its destination table berths."}
             </p>
           </div>
           <section className="inspector-section">
-            <h3>Source mapping</h3>
+            <h3>
+              {airport.role === "export"
+                ? "Destination mapping"
+                : "Source mapping"}
+            </h3>
             <dl>
               <dt>Metastore scope</dt>
               <dd>{airport.scope}</dd>
               <dt>Workspaces</dt>
               <dd>{airport.workspace_ids.length}</dd>
-              <dt>Known ingestion tasks</dt>
+              <dt>
+                Known {airport.role === "export" ? "export" : "ingestion"} tasks
+              </dt>
               <dd>{airport.attempt_ids.length}</dd>
             </dl>
             <p className="evidence-note">
-              Airports come from explicit external-source route evidence in this
+              Airports come from explicit external route evidence in this
               capture.
             </p>
           </section>
           <section className="inspector-section">
-            <h3>Destination berths · {airport.target_ids.length}</h3>
-            {airport.target_ids.map((id) => (
+            <h3>
+              {airport.role === "export" ? "Source" : "Destination"} berths ·{" "}
+              {
+                (airport.role === "export"
+                  ? airport.source_ids
+                  : airport.target_ids
+                ).length
+              }
+            </h3>
+            {(airport.role === "export"
+              ? airport.source_ids
+              : airport.target_ids
+            ).map((id) => (
               <TableName key={id} id={id} scene={scene} onSelect={onSelect} />
             ))}
           </section>
           <section className="inspector-section">
-            <h3>Ingestion attempts at this time</h3>
+            <h3>
+              {airport.role === "export" ? "Export" : "Ingestion"} attempts at
+              this time
+            </h3>
             {scene.attempts
               .filter((a) => airport.attempt_ids.includes(a.id))
               .map((a) => (
@@ -236,7 +261,8 @@ export default function Inspector({
               airport.attempt_ids.includes(a.id),
             ) && (
               <p className="evidence-note">
-                No ingestion attempts at the selected replay time.
+                No {airport.role === "export" ? "export" : "ingestion"} attempts
+                at the selected replay time.
               </p>
             )}
           </section>
@@ -255,7 +281,9 @@ export default function Inspector({
             </div>
             <div className="eyebrow">
               {a.kind === "plane"
-                ? "External ingestion"
+                ? isExport(a)
+                  ? "External export"
+                  : "External ingestion"
                 : a.kind === "ship"
                   ? "Table transformation"
                   : "Processing task"}
@@ -284,8 +312,11 @@ export default function Inspector({
           </div>
           {a.kind === "plane" && (
             <section className="inspector-section landing-section">
-              <h3>Landing planes · {landingDestinations(a).length}</h3>
-              {landingDestinations(a).map((id) => {
+              <h3>
+                {isExport(a) ? "Departure" : "Landing"} planes ·{" "}
+                {flightTableIds(a).length}
+              </h3>
+              {flightTableIds(a).map((id) => {
                 const o = scene.objects.find((o) => o.id === id);
                 return (
                   <button
@@ -308,8 +339,8 @@ export default function Inspector({
                 );
               })}
               <p className="evidence-note">
-                One plane per destination. All planes share this execution’s
-                status and timing.
+                One plane per {isExport(a) ? "source table" : "destination"}.
+                All planes share this execution’s status and timing.
               </p>
             </section>
           )}
@@ -350,6 +381,26 @@ export default function Inspector({
               {a.route.target_ids.map((id) => (
                 <TableName key={id} id={id} scene={scene} onSelect={onSelect} />
               ))}
+              {a.route.external_target && (
+                <button
+                  className="external-source"
+                  onClick={() => {
+                    const p = airports.find(
+                      (p) =>
+                        p.name === a.route.external_target &&
+                        p.attempt_ids.includes(a.id),
+                    );
+                    if (p) onSelect({ type: "airport", id: p.id });
+                  }}
+                >
+                  <Plane size={15} />
+                  <span>
+                    <small>Export destination airport</small>
+                    <strong>{a.route.external_target}</strong>
+                  </span>
+                  <ArrowUpRight size={14} />
+                </button>
+              )}
               {a.route.evidence === "unknown" && (
                 <p className="unknown-route">
                   No supported source or destination evidence. This task remains

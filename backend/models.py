@@ -48,6 +48,7 @@ class Route(BaseModel):
     source_ids: list[str]
     target_ids: list[str]
     external_source: str | None = None
+    external_target: str | None = None
     source_record_ids: list[str]
     observed_at: int
     provenance: str = "demo_fixture"
@@ -81,8 +82,11 @@ class Attempt(BaseModel):
 
     @model_validator(mode="after")
     def truthful_transport(self):
-        if self.kind == "plane" and (not self.route.external_source or self.route.evidence == "unknown"):
-            raise ValueError("A plane requires supported external source evidence.")
+        if self.kind == "plane":
+            incoming = self.route.external_source and self.route.target_ids and not self.route.external_target
+            outgoing = self.route.external_target and self.route.source_ids and not self.route.external_source and not self.route.target_ids
+            if self.route.evidence == "unknown" or not (incoming or outgoing):
+                raise ValueError("A plane requires supported external source evidence or an external destination with source tables.")
         if self.kind == "ship" and (not self.route.source_ids or not self.route.target_ids or self.route.evidence == "unknown"):
             raise ValueError("An unknown or read-only route must use a processing buoy.")
         return self

@@ -35,7 +35,12 @@ import {
   LakeSentryLighthouse,
   PondPilotDucks,
 } from "./scene/LakeLandmarks";
-import { expandVessels, flightSelection, selectedDestination } from "./vessels";
+import {
+  expandVessels,
+  flightSelection,
+  isExport,
+  selectedDestination,
+} from "./vessels";
 
 const colors = {
   observed: "#668e82",
@@ -160,7 +165,9 @@ function Vessel({
         ? "#e2c28a"
         : a.collection_stale_at !== null
           ? "#a9b7ae"
-          : "#ffffff";
+          : isExport(a)
+            ? "#f3e2bc"
+            : "#ffffff";
   const moving =
     a.phase === "running" && a.collection_stale_at === null && !reduced;
   useFrame(() => {
@@ -324,7 +331,9 @@ function Vessel({
               className={`${a.kind === "plane" ? "plane-label" : "vessel-label"} ${selected ? "selected" : ""} ${a.phase === "failed" ? "danger" : ""}`}
               aria-label={
                 a.kind === "plane"
-                  ? `Inspect plane to ${landingName ?? "unresolved destination"}`
+                  ? isExport(a)
+                    ? `Inspect export from ${landingName ?? "unresolved source"} to ${a.route.external_target}`
+                    : `Inspect plane to ${landingName ?? "unresolved destination"}`
                   : undefined
               }
               aria-pressed={selected}
@@ -333,7 +342,11 @@ function Vessel({
               {a.phase === "failed" ? "Failed · " : ""}
               {a.kind === "plane" ? (
                 <>
-                  <small>↘ {landing?.schema_name ?? "Landing"}</small>
+                  <small>
+                    {isExport(a) ? "↗" : "↘"}{" "}
+                    {landing?.schema_name ??
+                      (isExport(a) ? "Export" : "Landing")}
+                  </small>
                   {landing?.name ?? "Unresolved"}
                 </>
               ) : (
