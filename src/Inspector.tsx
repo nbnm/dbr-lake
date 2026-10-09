@@ -13,7 +13,14 @@ import {
   X,
 } from "lucide-react";
 import type { Attempt, Selection, Snapshot } from "./types";
-import { duration, elapsed, isSimulated, status, timestamp } from "./state";
+import {
+  duration,
+  elapsed,
+  executionId,
+  executionState,
+  status,
+  timestamp,
+} from "./state";
 import { catalogId, schemaId, type AirportLayout } from "./layout";
 import {
   flightSelection,
@@ -290,13 +297,6 @@ export default function Inspector({
             </div>
             <h2>{a.name}</h2>
             <StatusBadge attempt={a} at={scene.server_time} />
-            {scene.simulation && (
-              <span className="simulation-tag">
-                {isSimulated(a, scene.mode)
-                  ? "Simulated run"
-                  : "Real captured run"}
-              </span>
-            )}
           </div>
           <div className="workspace-caption">
             <MapPin size={14} />
@@ -314,7 +314,7 @@ export default function Inspector({
               destinationId={destination}
             />
             <small>
-              Job {a.job_id} · Run {a.run_id}
+              Job {executionId(a, a.job_id)} · Run {executionId(a, a.run_id)}
             </small>
           </div>
           {a.kind === "plane" && (
@@ -417,7 +417,7 @@ export default function Inspector({
             </div>
             <p className="evidence-note">
               {a.provenance === "workspace_simulation"
-                ? "Simulated route using real captured table identities. This movement was not observed in Databricks."
+                ? "Route uses captured workspace tables."
                 : a.route.evidence === "observed"
                   ? scene.mode === "demo"
                     ? "This fixture associates the route with this execution."
@@ -479,7 +479,7 @@ export default function Inspector({
             )}
             <p className="evidence-note">
               {a.provenance === "workspace_simulation"
-                ? "Vessel position follows the simulated duration. Times and results are invented."
+                ? "Vessel position follows this run’s replay duration."
                 : a.replay_duration_ms
                   ? "Vessel position follows the recorded run duration in this fixed replay. It does not measure data progress."
                   : "Vessel position represents estimated elapsed time."}
@@ -523,7 +523,7 @@ export default function Inspector({
             <dl>
               <dt>Job / run</dt>
               <dd>
-                {a.job_id} / {a.run_id}
+                {executionId(a, a.job_id)} / {executionId(a, a.run_id)}
               </dd>
               <dt>{a.scope === "job_run" ? "Execution scope" : "Task run"}</dt>
               <dd>{a.scope === "job_run" ? "Job run" : a.task_run_id}</dd>
@@ -533,20 +533,26 @@ export default function Inspector({
                 {a.attempt_number > 0 ? " · retry" : ""}
               </dd>
               <dt>Observed state</dt>
-              <dd>{a.raw_state}</dd>
+              <dd>{executionState(a)}</dd>
               <dt>Last observation</dt>
               <dd>{timestamp(a.observed_at)}</dd>
-              <dt>Estimate version</dt>
-              <dd>{a.estimate.version}</dd>
+              {a.provenance !== "workspace_simulation" && (
+                <>
+                  <dt>Estimate version</dt>
+                  <dd>{a.estimate.version}</dd>
+                </>
+              )}
             </dl>
-            <details className="source-evidence">
-              <summary>Evidence identifiers</summary>
-              <p>{a.source_id}</p>
-              {a.route.source_record_ids.map((id) => (
-                <p key={id}>{id}</p>
-              ))}
-              <p>Timing basis: {a.estimate.timing_basis}</p>
-            </details>
+            {a.provenance !== "workspace_simulation" && (
+              <details className="source-evidence">
+                <summary>Evidence identifiers</summary>
+                <p>{a.source_id}</p>
+                {a.route.source_record_ids.map((id) => (
+                  <p key={id}>{id}</p>
+                ))}
+                <p>Timing basis: {a.estimate.timing_basis}</p>
+              </details>
+            )}
           </section>
           <div className="inspector-actions">
             <button className="primary-button" onClick={onFocus}>
@@ -694,12 +700,7 @@ export default function Inspector({
       )}
       <div className="panel-footer">
         <i />
-        {a?.provenance === "workspace_simulation"
-          ? "Simulated run · real table identities"
-          : scene.mode === "demo"
-            ? "Simulated metadata"
-            : "Imported historical metadata"}{" "}
-        · read-only replay
+        Read-only activity replay
       </div>
     </aside>
   );

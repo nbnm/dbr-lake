@@ -438,17 +438,18 @@ export default function Configuration({
         </section>
         <section className="config-import">
           <div>
-            <h3>Simulate activity on real schemas</h3>
+            <h3>Add activity across workspace schemas</h3>
             <p>
-              Keep the imported jobs and add 84 simulated API landings,
-              transformations and exports using captured tables and job names.
+              Keep the imported jobs and add 84 runs across captured catalogs
+              and schemas, covering ingestion, transformations, quality checks,
+              reporting, ML, and exports.
             </p>
           </div>
           <button
             className="primary-button"
             disabled={!!busy || lastCapture === null || simulatedRuns > 0}
             onClick={() =>
-              action("Adding simulated runs to the saved replay…", async () => {
+              action("Adding activity to the saved replay…", async () => {
                 onLoaded(
                   await api<Replay>("/api/replay/simulate", { method: "POST" }),
                 );
@@ -457,7 +458,7 @@ export default function Configuration({
             }
           >
             <Plus size={15} />
-            Add 84 simulated runs
+            Add 84 runs
           </button>
         </section>
         <section className="config-import">
@@ -465,14 +466,14 @@ export default function Configuration({
             <h3>Add more activity to this replay</h3>
             <p>
               Keep all existing runs and add another 80 across the same captured
-              day, using real table identities and similar job names.
+              day, covering more workloads on captured tables and schemas.
             </p>
           </div>
           <button
             className="primary-button"
             disabled={!!busy || !lastCaptureId}
             onClick={() =>
-              action("Adding another 80 simulated runs…", async () => {
+              action("Adding another 80 runs…", async () => {
                 const selectedCapture =
                   captureId && captureId !== "demo-v5"
                     ? captureId
@@ -487,7 +488,7 @@ export default function Configuration({
               })
             }
           >
-            <Plus size={15} /> Add another 80 simulated runs
+            <Plus size={15} /> Add another 80 runs
           </button>
         </section>
         <button
@@ -500,7 +501,7 @@ export default function Configuration({
             })
           }
         >
-          Standalone simulated sample · 80 runs
+          Standalone sample · 80 runs
         </button>
         {busy && (
           <div className="config-busy" role="status">

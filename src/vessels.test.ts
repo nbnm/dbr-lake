@@ -287,7 +287,7 @@ describe("job-run navigation", () => {
       "mixed-capture",
     )!;
     expect(link.external).toBe(false);
-    expect(link.label).toBe("Open simulated job run");
+    expect(link.label).toBe("Open job run");
     const params = new URL(link.href, "http://localhost").searchParams;
     expect(params.get("capture")).toBe("mixed-capture");
     expect(params.get("attempt")).toBe(simulated.id);
@@ -312,7 +312,7 @@ describe("job-run navigation", () => {
   it("builds a working demo link with execution scope, selected landing, and event time", () => {
     const link = jobRunLink(plane, "demo", 60000.7, objects[2].id, "demo-v4")!;
     const params = new URL(link.href, "http://localhost").searchParams;
-    expect(link.label).toBe("Open demo job run");
+    expect(link.label).toBe("Open job run");
     expect(params.get("job-run")).toBe(plane.run_id);
     expect(params.get("job")).toBe(plane.job_id);
     expect(params.get("workspace")).toBe(plane.workspace_id);

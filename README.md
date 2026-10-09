@@ -8,7 +8,7 @@ Speed shortcuts work with the menus hidden: **1** restores the normal **60×** p
 
 ![Animated preview of SimLake: paper vessels, shore docks, forest, fields, LakeSentry lighthouse, swimming PondPilot ducks and 8FDE octopus, Antares skyscraper and SecondStack sailboat](docs/assets/lake-replay.gif)
 
-_Recorded from the running app with explicitly simulated metadata and 60× playback. The swimming mascots use an independent ambient clock._
+_Recorded from the running app with sample activity and 60× playback. The swimming mascots use an independent ambient clock._
 
 ## What the lake shows
 
@@ -20,13 +20,13 @@ _Recorded from the running app with explicitly simulated metadata and 60× playb
 - **A natural landscape.** Broad rounded corners and gentle bays give the lake an irregular shoreline. Docks attach to this contour, paths follow it, and forests, reeds, lily pads, and rocks fill the surrounding landscape alongside crop fields and inland airports. Reserved corridors stay inside the rounded water boundary, and deterministic yielding reduces vessel overlaps.
 - **Linked landmarks.** A pale [LakeSentry](https://lakesentry.io/) lighthouse, [PondPilot](https://pondpilot.io/) ducks, [8FDE](https://8fde.ai/) octopus, [Antares](https://getantares.io/) skyscraper, [SecondStack](https://secondstack.ai/) sailboat, [Alchemist](https://getalchemist.io/) zeppelin, and bottom-center [T1A](https://t1a.com/) title open their homepages. SecondStack's official logo is printed on both sides of the sails; Alchemist's small official symbol appears on both hull sides, with a linked plaque matching LakeSentry's. The zeppelin circles in a separate sky lane above aircraft and buildings, independently of paused or completed replay. The T1A title stays at the bottom center on desktop and compact views. Plaques keep clear of its full text area. Brand links are keyboard accessible. The SecondStack sailboat, PondPilot flock, and 8FDE octopus continuously travel across both halves of the lake, including while replay is paused or completed. They share collision clearance with paper ships; planes pass above the sailboat mast. Reduced motion keeps these models visible and stationary.
 
-React, TypeScript, Three.js, and React Three Fiber render the scene. A Python FastAPI backend reads Databricks system tables through SQL Statement Execution and saves fixed captures in local SQLite. A visibly labeled simulated capture makes the app usable before a workspace is connected.
+React, TypeScript, Three.js, and React Three Fiber render the scene. A Python FastAPI backend reads Databricks system tables through SQL Statement Execution and saves fixed captures in local SQLite. A sample capture makes the app usable before a workspace is connected.
 
 A tall Canadian flagpole stands on the shore diagonally opposite the LakeSentry lighthouse. Its locally bundled [official flag artwork](https://www.canada.ca/en/canadian-heritage/services/flag-canada-description.html) is scaled to 70% of its original size, has a pale cream wash, faces the camera, and flutters gently, including during paused replay. The flag remains visible with captions and lake mascots hidden; reduced motion keeps it unfurled and still.
 
-Choose **Configure replay → Add 84 simulated runs** after importing a workspace. This preserves every real job run, schema, table identity, lineage record and Databricks link, then adds 28 API landings, 28 table transformations and 28 exports spread across the captured day. Simulated names follow the actual imported job definitions; routes use actual captured table IDs in workspaces that can see them. Simulated routes, times and results are explicitly invented, and their links open local simulation details. **Add another 80 simulated runs** appends 27 API landings, 27 transformations and 26 exports to the selected replay, preserving the original real runs and any earlier simulation. Repeating a request for the same parent capture returns the same addition. The mixed capture is saved separately from its source and becomes the active replay. Repeating the action returns the same capture without duplicating runs, including after restart. Playback needs no additional remote queries.
+Choose **Configure replay → Add 84 runs** after importing a workspace. This preserves every imported job run, schema, table identity, lineage record, and Databricks link, then adds activity throughout the captured day. Names and routes draw from actual captured catalogs, schemas, and tables across streaming, monitoring, finance, marketing, operations, migration, AI, ML, and reporting. Catalogs receive balanced coverage, with up to three schema layers per catalog. Added executions are generated locally and open local run details; original executions retain their Databricks links. **Add another 80 runs** extends the selected replay without changing its existing runs. The overlay is stored separately from its source, and repeating a request returns the same capture without duplicating activity, including after restart. Playback needs no additional remote queries.
 
-**Standalone simulated sample · 80 runs** remains available without a connection at [the sample lake](http://127.0.0.1:8001/?capture=demo-v5). It uses invented execution data and workspace-style names, separate from the real workspace overlay. The default 60× speed plays a full day in 24 minutes.
+**Standalone sample · 80 runs** remains available without a connection at [the sample lake](http://127.0.0.1:8001/?capture=demo-v5). It uses invented execution data and workspace-style names, separate from the workspace overlay. The default 60× speed plays a full day in 24 minutes.
 
 ## Run locally
 
@@ -82,7 +82,7 @@ Vessels represent **job runs**, with task runs shown in the inspector. Lineage's
 
 Completed historical runs use **recorded duration** to interpolate vessel motion smoothly. This illustrates elapsed time, not measured row or byte progress. Duration forecasts remain separate, use only prior comparable successes, and stay unknown for sparse cohorts. Unfinished runs retain unknown completion time; motion freezes at their last reported slice when observations are stale. Status changes only at the recorded event time.
 
-Run links use the actual workspace host from the system directory. If that directory is unavailable, the importer leaves native links unresolved. Simulated runs open a local run-details page. Captures survive restart, and failed imports preserve the previous capture. Older captures and legacy Jobs API connections remain readable; saving a connection in the current menu selects the system-table importer.
+Run links use the actual workspace host from the system directory. If that directory is unavailable, the importer leaves native links unresolved. Added activity opens a local run-details page. Captures survive restart, and failed imports preserve the previous capture. Older captures and legacy Jobs API connections remain readable; saving a connection in the current menu selects the system-table importer.
 
 Imports submit application-owned metadata `SELECT` queries to a SQL warehouse. Pending statement checks and result-chunk pagination happen only during import; playback makes no remote requests. Truncated or incomplete results fail explicitly. Queries are bounded to 200,000 rows and 24 MiB per statement. Very large histories require a later partitioned importer.
 
@@ -95,12 +95,12 @@ Imports submit application-owned metadata `SELECT` queries to a SQL warehouse. P
 | Regional system-table and lineage import         | `backend/system_import.py`                                  |
 | Capture assembly and legacy import compatibility | `backend/replay_import.py`                                  |
 | Local-only configuration and replay endpoints    | `backend/app.py`                                            |
-| Real-history overlay with 84 simulated runs      | `backend/simulation.py`                                     |
+| Workspace activity overlay with 84 runs          | `backend/simulation.py`                                     |
 | Stable harbor layout and navigation              | `src/layout.ts`, `src/navigation.ts`, `src/traffic.ts`      |
 | Configuration, playback, and inspection          | `src/Configuration.tsx`, `src/App.tsx`, `src/Inspector.tsx` |
 | Paper vessels, landmarks, and ambient swimming   | `src/scene/`, `src/motion.ts`, `src/wildlife.ts`            |
 
-Large catalogs share a shore-connected wooden spine with paired schema piers and short crosswalks. Ships turn between pier rows and leave through outer clearance corridors; swimming routes keep clear of the entire structure. Schema piers contain shared traffic ports and no table models or table captions. Table count does not affect a pier's width. Every table remains available in the inspector and route metadata. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable; mixed captures label real and simulated runs individually.
+Large catalogs share a shore-connected wooden spine with paired schema piers and short crosswalks. Ships turn between pier rows and leave through outer clearance corridors; swimming routes keep clear of the entire structure. Schema piers contain shared traffic ports and no table models or table captions. Table count does not affect a pier's width. Every table remains available in the inspector and route metadata. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable; run details are available from both the lake and activity list.
 
 ## Validate
 
@@ -110,6 +110,6 @@ npm test
 npm run build
 ```
 
-Tests cover SQL submission and pagination, truncation and failure recovery, single-connection imports, cross-workspace run links, lineage association, long runs, repairs, stale observations, secret handling, CLI profile matching and refresh, persisted captures, replay reconstruction, recorded-duration motion, navigation clearance, hierarchy, and continuous mascot swimming. Browser checks cover the hidden default menus and captions, minute-level timeline, 60× playback, configuration, inspection, linked landmarks, and responsive layout. A real Azure Databricks import has verified CLI OAuth, warehouse usage, job/task history, lineage, inventory, workspace directory, and native run links. Private captures remain local and are excluded from Git; the README animation uses simulated metadata.
+Tests cover SQL submission and pagination, truncation and failure recovery, single-connection imports, cross-workspace run links, lineage association, long runs, repairs, stale observations, secret handling, CLI profile matching and refresh, persisted captures, replay reconstruction, recorded-duration motion, navigation clearance, hierarchy, and continuous mascot swimming. Browser checks cover the hidden default menus and captions, minute-level timeline, 60× playback, configuration, inspection, linked landmarks, and responsive layout. A real Azure Databricks import has verified CLI OAuth, warehouse usage, job/task history, lineage, inventory, workspace directory, and native run links. Private captures remain local and are excluded from Git; the README animation uses sample activity.
 
 See [implementation status](docs/implementation.md) for remaining limitations.

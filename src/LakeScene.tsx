@@ -330,7 +330,6 @@ function Vessel({
               onClick={() => onSelect(flightSelection(a, destinationId))}
             >
               {a.phase === "failed" ? "Failed · " : ""}
-              {a.provenance === "workspace_simulation" ? "Simulated · " : ""}
               {a.kind === "plane" ? (
                 <>
                   <small>

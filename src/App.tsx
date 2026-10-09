@@ -31,7 +31,6 @@ import {
   duration,
   elapsed,
   isOverdue,
-  isSimulated,
   replayLabel,
   reconstruct,
   timestamp,
@@ -572,7 +571,11 @@ export default function App() {
               </div>
             ) : null}
             {scene.mode === "replay" && (
-              <p className="capture-history-note">{scene.history_note}</p>
+              <p className="capture-history-note">
+                {scene.simulation
+                  ? "24-hour activity replay using captured workspace catalogs and schemas."
+                  : scene.history_note}
+              </p>
             )}
             <main className="workspace">
               <div className="main-workspace">
@@ -824,13 +827,6 @@ export default function App() {
                                   </td>
                                   <td>
                                     <StatusBadge attempt={a} at={at} />
-                                    {scene.simulation && (
-                                      <span className="simulation-tag">
-                                        {isSimulated(a, scene.mode)
-                                          ? "Simulated"
-                                          : "Real"}
-                                      </span>
-                                    )}
                                   </td>
                                   <td className="tabular">
                                     {duration(elapsed(a, at))}
@@ -1037,7 +1033,7 @@ export default function App() {
                             <span>{tickLabel(scene.range.start)}</span>
                             <span>
                               {scene.mode === "demo"
-                                ? "Simulated gaps shaded"
+                                ? "Coverage gaps shaded"
                                 : "Fixed capture · Toronto time"}
                             </span>
                             <span>{tickLabel(scene.range.end)}</span>
@@ -1079,14 +1075,12 @@ export default function App() {
             <footer className="app-footer">
               <span>
                 <Waves size={12} />
-                Lake simulation <span>v0.1</span>
+                SimLake <span>v0.1</span>
               </span>
               <span>
-                {scene.simulation
-                  ? "Real history + simulated runs"
-                  : scene.mode === "demo"
-                    ? "Simulated metadata"
-                    : "Imported history · replay only"}
+                {scene.mode === "demo"
+                  ? "Sample activity · replay only"
+                  : "Workspace activity · replay only"}
               </span>
               <span>Estimated motion, observed status</span>
             </footer>

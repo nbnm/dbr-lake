@@ -5,7 +5,8 @@ import { StatusBadge } from "./Inspector";
 import {
   duration,
   elapsed,
-  isSimulated,
+  executionId,
+  executionState,
   replayLabel,
   timestamp,
 } from "./state";
@@ -105,12 +106,8 @@ export default function JobRunPage() {
           <>
             <div className="run-title">
               <div>
-                <div className="eyebrow">
-                  {isSimulated(a, scene.mode)
-                    ? "Simulated job run"
-                    : "Historical job run"}
-                </div>
-                <h1>Run {a.run_id}</h1>
+                <div className="eyebrow">Job run</div>
+                <h1>Run {executionId(a, a.run_id)}</h1>
                 <p>{a.name}</p>
               </div>
               <div className="run-selected-status">
@@ -119,12 +116,7 @@ export default function JobRunPage() {
               </div>
             </div>
             <p className="run-demo-note">
-              {a.provenance === "workspace_simulation"
-                ? "Simulated execution · real captured table identities"
-                : scene.mode === "demo"
-                  ? "Simulated execution"
-                  : "Imported execution"}
-              {" · "}Snapshot at {timestamp(scene.server_time)} Toronto time
+              Snapshot at {timestamp(scene.server_time)} Toronto time
             </p>
             <dl className="run-summary">
               <div>
@@ -136,11 +128,11 @@ export default function JobRunPage() {
               </div>
               <div>
                 <dt>Job ID</dt>
-                <dd>{a.job_id}</dd>
+                <dd>{executionId(a, a.job_id)}</dd>
               </div>
               <div>
                 <dt>Task run ID</dt>
-                <dd>{a.task_run_id}</dd>
+                <dd>{executionId(a, a.task_run_id)}</dd>
               </div>
               <div>
                 <dt>Elapsed</dt>
@@ -173,7 +165,8 @@ export default function JobRunPage() {
                         <td>
                           <strong>{task.name}</strong>
                           <small>
-                            {task.task_key} · Task run {task.task_run_id}
+                            {task.task_key} · Task run{" "}
+                            {executionId(task, task.task_run_id)}
                           </small>
                         </td>
                         <td>
@@ -182,7 +175,7 @@ export default function JobRunPage() {
                         </td>
                         <td>
                           <StatusBadge attempt={task} at={scene.server_time} />
-                          <small>{task.raw_state}</small>
+                          <small>{executionState(task)}</small>
                         </td>
                         <td>
                           {task.started_at === null
@@ -284,16 +277,19 @@ export default function JobRunPage() {
                 <dd>{duration(a.estimate.predicted_duration_ms)}</dd>
                 <dt>Last observation</dt>
                 <dd>{timestamp(a.observed_at)}</dd>
-                <dt>Route version</dt>
-                <dd>{a.route.version}</dd>
-                <dt>Estimate version</dt>
-                <dd>{a.estimate.version}</dd>
+                {a.provenance !== "workspace_simulation" && (
+                  <>
+                    <dt>Route version</dt>
+                    <dd>{a.route.version}</dd>
+                    <dt>Estimate version</dt>
+                    <dd>{a.estimate.version}</dd>
+                  </>
+                )}
               </dl>
             </section>
             <footer className="run-footer">
-              {isSimulated(a, scene.mode) ? "Simulated" : "Historical"} run
-              details · Databricks runs open the URL supplied by source
-              metadata.
+              Read-only run details · Databricks runs open the URL supplied by
+              source metadata.
             </footer>
           </>
         )}

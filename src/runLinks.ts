@@ -42,10 +42,7 @@ export function jobRunLink(
     params.set("destination", destinationId);
   return {
     href: `/?${params}`,
-    label:
-      a.provenance === "workspace_simulation"
-        ? "Open simulated job run"
-        : "Open demo job run",
+    label: "Open job run",
     external: false,
   };
 }

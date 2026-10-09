@@ -5,11 +5,19 @@ export function isSimulated(a: Attempt, mode: Snapshot["mode"]): boolean {
 }
 
 export function replayLabel(scene: Snapshot): string {
-  return scene.simulation
-    ? `Real + ${scene.simulation.added_runs} simulated`
-    : scene.mode === "demo"
-      ? "Simulated replay"
-      : "Historical replay";
+  return scene.mode === "demo" ? "Sample replay" : "24-hour replay";
+}
+
+export function executionState(a: Attempt): string {
+  return a.provenance === "workspace_simulation"
+    ? a.phase.toUpperCase()
+    : a.raw_state;
+}
+
+export function executionId(a: Attempt, id: string): string {
+  return a.provenance === "workspace_simulation"
+    ? id.replace(/^sim-(job|run)-/, "$1-")
+    : id;
 }
 
 export function reconstruct(replay: Replay, at: number): Snapshot {

@@ -27,7 +27,7 @@ def snapshot(store: EventStore, at: int) -> dict:
         elif event.type == "collection.gap":
             gaps.append({**event.payload, "workspace_id": event.workspace_id})
     return {"mode": "demo", "capture_id": fixtures.CAPTURE_ID, "captured_at": fixtures.END, "warnings": [],
-            "history_note": f"Simulated 24-hour capture: {fixtures.JOB_RUN_COUNT} job runs plus one repair attempt. Names follow workspace conventions. All job data is invented.",
+            "history_note": f"Sample 24-hour capture: {fixtures.JOB_RUN_COUNT} job runs plus one repair attempt. Names follow workspace conventions. All job data is invented.",
             "account_id": "t1a-demo", "server_time": at, "cursor": cursor,
             "range": {"start": fixtures.BASE, "end": fixtures.END},
             "objects": [o.model_dump() for o in fixtures.topology()],
@@ -143,14 +143,14 @@ def create_app(db_path: str | None = None) -> FastAPI:
         from .simulation import build_simulation
         additional = request.url.path.endswith('/more')
         if additional and not capture:
-            raise HTTPException(400, 'Select a saved capture to add another 80 simulated runs.')
+            raise HTTPException(400, 'Select a saved capture to add another 80 runs.')
         if not request.app.state.import_lock.acquire(blocking=False):
-            raise HTTPException(409, 'A replay import or simulation is already running.')
+            raise HTTPException(409, 'A replay import or activity update is already running.')
         try:
             repo = request.app.state.repository
             source = repo.capture(capture)
             if source is None:
-                raise ValueError('Import a real workspace replay before adding simulated runs.')
+                raise ValueError('Import a workspace replay before adding activity.')
             if source['checkpoint'].get('simulation') and not additional:
                 source = repo.capture(source['checkpoint']['simulation']['source_capture_id'])
                 if source is None:

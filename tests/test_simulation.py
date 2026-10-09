@@ -67,7 +67,8 @@ def test_overlay_preserves_real_identities_history_and_links_without_inventing_t
     known = {o['id'] for o in source['checkpoint']['objects']}
     for a in simulated:
         assert a['workspace_id'] == 'real-workspace' and a['account_id'] == 'real-account'
-        assert re.fullmatch(r'Sigma Demo 2-\d+-(?:API-landing|tables-deploy|export)', a['name'])
+        assert not re.search(r'(?i)\bsim(?:ulated)?\b|Sigma Demo', a['name'])
+        assert a['name'].startswith(('sandbox-', 'platform-'))
         assert a['native_url'] is None
         assert a['estimate']['sample_count'] == 0
         assert a['route']['evidence'] == 'configured' and a['route']['provenance'] == PROVENANCE
@@ -153,7 +154,8 @@ def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_
     known = {o['id'] for o in source['checkpoint']['objects']}
     for a in added:
         assert a['provenance'] == PROVENANCE and a['native_url'] is None
-        assert re.fullmatch(r'Sigma Demo 2-\d+-(?:API-landing|tables-deploy|export)', a['name'])
+        assert not re.search(r'(?i)\bsim(?:ulated)?\b|Sigma Demo', a['name'])
+        assert a['name'].startswith(('sandbox-', 'platform-'))
         assert START < a['started_at'] < a['ended_at'] <= END
         assert set(a['route']['source_ids'] + a['route']['target_ids']) <= known
         Attempt.model_validate(a)
@@ -180,11 +182,17 @@ def test_saved_legacy_names_are_cleaned_across_replay_and_run_details_without_re
     for a in [*source['checkpoint']['attempts'], *(e['payload'] for e in source['events'])]:
         a['name'] = 'Sigma-sim-01-tables-deploy'  # A real name must be preserved verbatim.
     expected = build_simulation(source)
+    # Explicitly construct the old format, independently of the current naming
+    # scheme, so this checks compatibility rather than a no-op conversion.
+    selected = next(e['execution_attempt_id'] for e in expected['events']
+                    if e['type'] == 'attempt.upsert' and e['payload'].get('provenance') == PROVENANCE)
+    for e in expected['events']:
+        if e['execution_attempt_id'] == selected:
+            e['payload']['name'] = 'Sigma Demo 2-001-API-landing'
     legacy = deepcopy(expected)
     for e in legacy['events']:
-        a = e['payload']
-        if e['type'] == 'attempt.upsert' and a.get('provenance') == PROVENANCE:
-            a['name'] = re.sub(r'-(\d+-(?:API-landing|tables-deploy|export))$', r'-sim-\1', a['name'])
+        if e['execution_attempt_id'] == selected:
+            e['payload']['name'] = 'Sigma Demo 2-sim-001-API-landing'
     with TestClient(create_app(str(tmp_path / 'demo.sqlite')), base_url='http://localhost', client=('127.0.0.1', 1)) as client:
         repo = client.app.state.repository
         repo.save_capture(source)
@@ -199,3 +207,51 @@ def test_saved_legacy_names_are_cleaned_across_replay_and_run_details_without_re
         assert client.get('/api/replay', params={'capture': 'real-capture'}).json() == source
         stored = repo.db.execute('SELECT payload FROM captures WHERE id=?', (legacy['checkpoint']['capture_id'],)).fetchone()[0]
         assert json.loads(stored) == legacy
+
+
+def test_activity_balances_catalogs_workloads_and_schema_layers_with_writable_endpoints():
+    source = real_capture()
+    cp = source['checkpoint']
+    families = ['iot_streaming', 'lakesentry_monitoring', 'sas_migration', 'mlops',
+                'genai_vector', 'finance_prod', 'marketing_prod', 'delivery_ops', 'reporting']
+    prototype = cp['objects'][0]
+    for catalog in families:
+        for schema in ['bronze', 'silver', 'gold', 'bronze_all_tables']:
+            for name in ['records', 'records_view']:
+                cp['objects'].append({**prototype,
+                    'id': f'real-metastore:{catalog}.{schema}.{name}', 'catalog': catalog,
+                    'schema_name': schema, 'name': name,
+                    'type': 'view' if name.endswith('_view') else 'table'})
+    # Thousands of tables in Sigma must not displace smaller catalogs.
+    for n in range(300):
+        cp['objects'].append({**prototype, 'id': f'large-{n}',
+                              'name': f'sales_{n}'})
+    cp['objects'].append({**prototype, 'id': 'internal', 'catalog': '__internal'})
+    cp['objects'].append({**prototype, 'id': 'event-log', 'name': 'event_log_123'})
+    before = deepcopy(source)
+    result = build_simulation(build_simulation(source), additional=True)
+    assert source == before
+    inventory = {o['id']: o for o in cp['objects']}
+    generated = [a for a in captured_attempts(result) if a['provenance'] == PROVENANCE]
+    used = {i for a in generated for i in a['route']['source_ids'] + a['route']['target_ids']}
+    assert set(families) <= {inventory[i]['catalog'] for i in used}
+    assert {'internal', 'event-log'}.isdisjoint(used)
+    assert all(inventory[i]['type'] == 'table' for i in used)
+    for catalog in families:
+        assert {'bronze', 'silver', 'gold'} <= {
+            inventory[i]['schema_name'] for i in used if inventory[i]['catalog'] == catalog}
+    actions_by_catalog = {
+        'iot_streaming': ['event-deduplication', 'SCD2-merge', 'window-aggregation'],
+        'lakesentry_monitoring': ['cost-allocation', 'lineage-refresh', 'quality-check'],
+        'sas_migration': ['SAS-conversion', 'dependency-analysis', 'reconciliation'],
+        'mlops': ['feature-engineering', 'batch-scoring', 'model-validation'],
+        'genai_vector': ['embedding-refresh', 'document-chunking', 'retrieval-evaluation'],
+        'finance_prod': ['reconciliation', 'risk-aggregation', 'balance-refresh'],
+        'marketing_prod': ['audience-segmentation', 'campaign-attribution', 'quality-check'],
+        'delivery_ops': ['delivery-metrics', 'SCD2-merge', 'quality-check'],
+        'reporting': ['dbt-transform', 'mart-refresh', 'quality-check'],
+    }
+    for catalog, actions in actions_by_catalog.items():
+        jobs = [a for a in generated if a['kind'] == 'ship' and a['name'].startswith(catalog + '-')]
+        assert jobs and all(any(a['name'].endswith(action) for action in actions) for a in jobs)
+    assert captured_attempts(source) == [a for a in captured_attempts(result) if a['provenance'] != PROVENANCE]
