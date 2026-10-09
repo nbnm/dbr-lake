@@ -5,7 +5,6 @@ import { Group, SRGBColorSpace, TextureLoader, type Texture } from "three";
 import type { LakeLayout } from "../layout";
 import { t1aShoreSign, zeppelinDimensions, zeppelinPose } from "../landmarks";
 import { Label } from "./SceneLabel";
-import { LandmarkLink } from "./LandmarkLink";
 
 const ALCHEMIST_URL = "https://getalchemist.io/";
 const T1A_URL = "https://t1a.com/";
@@ -72,10 +71,7 @@ export function AlchemistZeppelin({
   reduced: boolean;
 }) {
   const airship = useRef<Group>(null);
-  const [wordmark, mark] = useBrandTextures([
-    "/brands/alchemist.svg",
-    "/brands/alchemist-mark.svg",
-  ]);
+  const [mark] = useBrandTextures(["/brands/alchemist-mark.svg"]);
   const { length: l, radius: r, gondolaDrop } = zeppelinDimensions(water);
   const initial = zeppelinPose(water, 0, reduced);
   const ribs = useMemo(
@@ -118,7 +114,7 @@ export function AlchemistZeppelin({
       {ribs.map((points, i) => (
         <Line key={i} points={points} color="#65836d" lineWidth={0.65} />
       ))}
-      {/* Outward-facing copies keep the official wordmark readable from either bank. */}
+      {/* A small official symbol on each hull side stays visible from either bank. */}
       {[-1, 1].map((side) => (
         <group
           key={side}
@@ -126,9 +122,9 @@ export function AlchemistZeppelin({
           rotation={[0, side === -1 ? Math.PI : 0, 0]}
         >
           <LogoPrint
-            texture={wordmark}
-            width={l * 0.61}
-            height={(l * 0.61 * 44) / 444}
+            texture={mark}
+            width={r * 0.85}
+            height={(r * 0.85 * 44) / 55}
           />
         </group>
       ))}
@@ -139,19 +135,6 @@ export function AlchemistZeppelin({
             <boxGeometry args={[l * 0.2, r * 0.92, r * 0.07]} />
             <meshStandardMaterial color="#a5bb9a" flatShading />
           </mesh>
-        </group>
-      ))}
-      {[-1, 1].map((side) => (
-        <group
-          key={side}
-          position={[-l * 0.39, r * 0.7, side * r * 0.04]}
-          rotation={[0, side === -1 ? Math.PI : 0, 0]}
-        >
-          <LogoPrint
-            texture={mark}
-            width={r * 0.55}
-            height={(r * 0.55 * 44) / 55}
-          />
         </group>
       ))}
       {[-1, 1].map((side) => (
@@ -182,11 +165,23 @@ export function AlchemistZeppelin({
           </mesh>
         )),
       )}
-      <LandmarkLink
-        name="Alchemist"
-        href={ALCHEMIST_URL}
-        point={[0, r + 0.6, 0]}
-      />
+      <Label
+        persistent
+        center
+        position={[0, r + 0.6, 0]}
+        zIndexRange={[18, 0]}
+      >
+        <a
+          className="brand-accessible-link"
+          href={ALCHEMIST_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visit Alchemist (opens in a new tab)"
+          onClick={(event) => event.stopPropagation()}
+        >
+          Alchemist ↗
+        </a>
+      </Label>
     </group>
   );
 }
