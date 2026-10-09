@@ -1,4 +1,5 @@
 import type { LakeLayout, Point } from "./layout";
+import { shoreRadius } from "./shoreline";
 
 export type LakeMascot = "ducks" | "octopus";
 export const SWIM_RADIUS = 1.35;
@@ -16,11 +17,16 @@ export function openWater(
   insetZ = SURFACE_INSET_Z,
 ) {
   const d = water.harborDepth;
+  // Inscribe the shared corridors in the rounded corners, including enough
+  // room for the sailboat hull when collision clearance moves it sideways.
+  const shoreInset =
+    shoreRadius(water.halfWidth, water.halfDepth) * (1 - Math.SQRT1_2) + 2.1;
   return {
-    minX: -water.halfWidth + Math.max(insetX, (d?.west ?? 0) + 2.2),
-    maxX: water.halfWidth - Math.max(insetX, (d?.east ?? 0) + 2.2),
-    minZ: -water.halfDepth + Math.max(insetZ, (d?.north ?? 0) + 2.2),
-    maxZ: water.halfDepth - Math.max(insetZ, (d?.south ?? 0) + 2.2),
+    minX: -water.halfWidth + Math.max(insetX, shoreInset, (d?.west ?? 0) + 2.2),
+    maxX: water.halfWidth - Math.max(insetX, shoreInset, (d?.east ?? 0) + 2.2),
+    minZ:
+      -water.halfDepth + Math.max(insetZ, shoreInset, (d?.north ?? 0) + 2.2),
+    maxZ: water.halfDepth - Math.max(insetZ, shoreInset, (d?.south ?? 0) + 2.2),
   };
 }
 
@@ -82,9 +88,11 @@ export function swimPose(
 }
 
 export function inSwimmingArea(point: Point, water: LakeLayout["water"]) {
+  const bounds = openWater(water);
   return (
-    Math.abs(point[0]) <
-      water.halfWidth - SURFACE_INSET_X + SWIM_RADIUS + 0.25 &&
-    Math.abs(point[2]) < water.halfDepth - SURFACE_INSET_Z + SWIM_RADIUS + 0.25
+    point[0] > bounds.minX - SWIM_RADIUS - 0.25 &&
+    point[0] < bounds.maxX + SWIM_RADIUS + 0.25 &&
+    point[2] > bounds.minZ - SWIM_RADIUS - 0.25 &&
+    point[2] < bounds.maxZ + SWIM_RADIUS + 0.25
   );
 }

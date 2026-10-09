@@ -10,6 +10,7 @@ import {
 } from "./navigation";
 import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
+import { dockShoreInset, shoreRadius } from "./shoreline";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -98,7 +99,10 @@ export function inHarbor(point: Point, dock: DockLayout, padding = 0) {
 }
 
 export function lighthousePoint(layout: Pick<LakeLayout, "water">): Point {
-  return [-layout.water.halfWidth + 1.4, 0.1, layout.water.halfDepth + 0.65];
+  const { halfWidth: w, halfDepth: d } = layout.water;
+  const radius = shoreRadius(w, d);
+  const reach = (radius + 1.1) / Math.sqrt(2);
+  return [-w + radius - reach, 0.1, d - radius + reach];
 }
 
 export function antaresPoint(layout: Pick<LakeLayout, "water">): Point {
@@ -315,15 +319,49 @@ export function buildLakeLayout(
   const airportRows = Math.ceil(sources.size / 2);
   halfDepth = Math.max(halfDepth, (airportRows - 1) * 4 + 4.5);
   halfWidth = Math.max(halfWidth, halfDepth * 0.7);
+  // Reserve the broad corners before packing docks, and keep enough open
+  // water for the complete set of vessel lanes and processing moorings.
+  for (let pass = 0; pass < 24; pass++) {
+    const radius = shoreRadius(halfWidth, halfDepth);
+    const inset = radius * (1 - Math.SQRT1_2) + 2.1;
+    const nextWidth = Math.max(
+      halfWidth,
+      Math.max(bankWidths[0], bankWidths[1]) / 2 + radius + 1.1,
+      Math.ceil(Math.sqrt(navigation.lanes.buoy)) * 1.3 + inset + 1,
+      3 + inset + (navigation.lanes.ship - 1) * 0.9,
+    );
+    const nextDepth = Math.max(
+      halfDepth,
+      Math.max(bankWidths[2], bankWidths[3]) / 2 + radius + 1.1,
+      Math.ceil(
+        navigation.lanes.buoy / Math.ceil(Math.sqrt(navigation.lanes.buoy)),
+      ) *
+        1.3 +
+        inset +
+        1,
+      3 + inset + (navigation.lanes.ship - 1) * 0.9,
+    );
+    if (nextWidth - halfWidth < 0.001 && nextDepth - halfDepth < 0.001) break;
+    halfWidth = nextWidth;
+    halfDepth = nextDepth;
+  }
+  const harborDepth = [...depths];
   const rotations = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
   banks.forEach((bank, index) => {
     const rotation = rotations[index];
     let along = -bankWidths[index] / 2;
     for (const spec of bank) {
+      const offset = dockShoreInset(
+        shores[index],
+        (index === 1 || index === 2 ? -1 : 1) * (along + spec.width / 2),
+        spec.width + 0.6,
+        { halfWidth, halfDepth },
+      );
       const origin: Point =
         index < 2
-          ? [0, 0, (index === 0 ? -1 : 1) * (halfDepth - 0.55)]
-          : [(index === 2 ? -1 : 1) * (halfWidth - 0.55), 0, 0];
+          ? [0, 0, (index === 0 ? -1 : 1) * (halfDepth - offset - 0.55)]
+          : [(index === 2 ? -1 : 1) * (halfWidth - offset - 0.55), 0, 0];
+      harborDepth[index] = Math.max(harborDepth[index], spec.depth + offset);
       const center = harborPoint(
         { center: origin, rotation },
         along + spec.width / 2,
@@ -357,7 +395,7 @@ export function buildLakeLayout(
           center: harborPoint(
             dock,
             spec.branching ? side * 1.2 : px + width / 2,
-            spec.branching ? 3 + Math.floor(i / 2) * 5.6 : 0.5,
+            spec.branching ? 3 + Math.floor(i / 2) * 5.6 : 0.05,
           ),
           rotation: rotation + (spec.branching ? (side * Math.PI) / 2 : 0),
           width,
@@ -437,7 +475,7 @@ export function buildLakeLayout(
       halfWidth,
       halfDepth,
       harborDepth: Object.fromEntries(
-        shores.map((shore, i) => [shore, depths[i]]),
+        shores.map((shore, i) => [shore, harborDepth[i]]),
       ) as Record<Shore, number>,
     },
     ground,

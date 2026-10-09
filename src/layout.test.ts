@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Attempt, LakeObject } from "./types";
 import { buildLakeLayout, cameraFit, schemaId, harborPoint } from "./layout";
 import { makePath, positionAt } from "./motion";
+import { insideWater } from "./shoreline";
 
 function inventory(schemas: number, tables = 3): LakeObject[] {
   return Array.from({ length: schemas * tables }, (_, i) => ({
@@ -112,10 +113,12 @@ describe("inventory-driven harbor", () => {
     expect(lake.docks).toHaveLength(108);
     expect(lake.water.halfWidth / lake.water.halfDepth).toBeLessThan(2.5);
     for (const dock of lake.docks) {
-      const horizontal = dock.bank === "north" || dock.bank === "south";
-      expect(Math.abs(dock.center[horizontal ? 2 : 0])).toBeCloseTo(
-        (horizontal ? lake.water.halfDepth : lake.water.halfWidth) - 0.55,
-      );
+      for (const x of [-dock.width / 2, 0, dock.width / 2]) {
+        const dry = harborPoint(dock, x, -1.4);
+        const wet = harborPoint(dock, x, -0.2);
+        expect(insideWater(dry[0], dry[2], lake.water)).toBe(false);
+        expect(insideWater(wet[0], wet[2], lake.water)).toBe(true);
+      }
     }
   });
   it("packs docks without overlap and keeps every berth inside the lake", () => {

@@ -5,6 +5,7 @@ import {
   buildSurroundings,
   type FieldPatch,
   type ForestTree,
+  type CountryRoad,
 } from "../environment";
 
 function Grove({ trees }: { trees: ForestTree[] }) {
@@ -117,18 +118,35 @@ export function Countryside({ layout }: { layout: LakeLayout }) {
       {fields.map((field, i) => (
         <Field key={i} field={field} />
       ))}
-      {roads.map(({ from, to }, i) => (
-        <mesh
-          key={i}
-          position={[(from[0] + to[0]) / 2, from[1], (from[2] + to[2]) / 2]}
-          rotation={[0, -Math.atan2(to[2] - from[2], to[0] - from[0]), 0]}
-        >
-          <boxGeometry
-            args={[Math.hypot(to[0] - from[0], to[2] - from[2]), 0.018, 0.48]}
-          />
-          <meshStandardMaterial color="#cec4a4" roughness={1} />
-        </mesh>
-      ))}
+      <Paths roads={roads} />
     </group>
+  );
+}
+
+function Paths({ roads }: { roads: CountryRoad[] }) {
+  const mesh = useRef<InstancedMesh>(null!);
+  useLayoutEffect(() => {
+    const matrix = new Matrix4(),
+      rotation = new Quaternion();
+    const up = new Vector3(0, 1, 0);
+    roads.forEach(({ from, to }, i) => {
+      const dx = to[0] - from[0],
+        dz = to[2] - from[2];
+      rotation.setFromAxisAngle(up, -Math.atan2(dz, dx));
+      matrix.compose(
+        new Vector3((from[0] + to[0]) / 2, from[1], (from[2] + to[2]) / 2),
+        rotation,
+        new Vector3(Math.hypot(dx, dz), 1, 1),
+      );
+      mesh.current.setMatrixAt(i, matrix);
+    });
+    mesh.current.instanceMatrix.needsUpdate = true;
+    mesh.current.computeBoundingSphere();
+  }, [roads]);
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, roads.length]}>
+      <boxGeometry args={[1, 0.018, 0.48]} />
+      <meshStandardMaterial color="#cec4a4" roughness={1} />
+    </instancedMesh>
   );
 }

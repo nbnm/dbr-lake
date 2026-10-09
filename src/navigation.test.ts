@@ -12,13 +12,7 @@ import { buildSurroundings } from "./environment";
 import { lakeOutline } from "./shoreline";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 import { ambientTraffic, separateTraffic } from "./traffic";
-import {
-  swimPose,
-  SWIM_RADIUS,
-  surfaceLoopMs,
-  SURFACE_INSET_X,
-  SURFACE_INSET_Z,
-} from "./wildlife";
+import { swimPose, SWIM_RADIUS, surfaceLoopMs, openWater } from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
 
 const tables: LakeObject[] = Array.from({ length: 18 }, (_, i) => ({
@@ -190,6 +184,7 @@ describe("ambient journeys across the lake", () => {
     ];
     for (const lake of layouts) {
       const period = surfaceLoopMs(lake.water);
+      const bounds = openWater(lake.water);
       for (const kind of ["ducks", "octopus", "sailboat"] as const) {
         const poseAt = (at: number, reduced = false) =>
           kind === "sailboat"
@@ -235,11 +230,15 @@ describe("ambient journeys across the lake", () => {
         expect(
           Math.max(...points.map((p) => p.x)) -
             Math.min(...points.map((p) => p.x)),
-        ).toBeGreaterThan((lake.water.halfWidth - SURFACE_INSET_X) * 1.99);
+        ).toBeGreaterThan((bounds.maxX - bounds.minX) * 0.995);
         expect(
           Math.max(...points.map((p) => p.z)) -
             Math.min(...points.map((p) => p.z)),
-        ).toBeGreaterThan((lake.water.halfDepth - SURFACE_INSET_Z) * 1.99);
+        ).toBeGreaterThan((bounds.maxZ - bounds.minZ) * 0.995);
+        expect(Math.min(...points.map((p) => p.x))).toBeLessThan(0);
+        expect(Math.max(...points.map((p) => p.x))).toBeGreaterThan(0);
+        expect(Math.min(...points.map((p) => p.z))).toBeLessThan(0);
+        expect(Math.max(...points.map((p) => p.z))).toBeGreaterThan(0);
         expect(
           new Vector3(...poseAt(period - 1).point).distanceTo(
             new Vector3(...poseAt(period + 1).point),

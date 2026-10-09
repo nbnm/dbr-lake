@@ -1,5 +1,5 @@
 import type { LakeLayout, Point } from "./layout";
-import { surfacePose, SURFACE_INSET_X, SURFACE_INSET_Z } from "./wildlife";
+import { surfacePose, openWater } from "./wildlife";
 
 export const SAILBOAT_RADIUS = 1.8;
 
@@ -46,11 +46,12 @@ export function sailboatPose(
 }
 
 export function inSailingArea(point: Point, water: LakeLayout["water"]) {
+  const bounds = openWater(water);
   return (
-    Math.abs(point[0]) <
-      water.halfWidth - SURFACE_INSET_X + SAILBOAT_RADIUS + 0.4 &&
-    Math.abs(point[2]) <
-      water.halfDepth - SURFACE_INSET_Z + SAILBOAT_RADIUS + 0.4
+    point[0] > bounds.minX - SAILBOAT_RADIUS - 0.4 &&
+    point[0] < bounds.maxX + SAILBOAT_RADIUS + 0.4 &&
+    point[2] > bounds.minZ - SAILBOAT_RADIUS - 0.4 &&
+    point[2] < bounds.maxZ + SAILBOAT_RADIUS + 0.4
   );
 }
 

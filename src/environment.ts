@@ -2,10 +2,12 @@ import {
   antaresPoint,
   lighthousePoint,
   inHarbor,
+  harborPoint,
   type LakeLayout,
   type Point,
 } from "./layout";
 import { canadianFlag } from "./landmarks";
+import { insideWater, shorelinePoints, shorePoint } from "./shoreline";
 
 export interface FieldPatch {
   center: Point;
@@ -26,16 +28,32 @@ export interface CountryRoad {
 export function buildSurroundings(layout: LakeLayout) {
   const { halfWidth: w, halfDepth: d } = layout.water;
   const roads: CountryRoad[] = [];
-  const corners: Point[] = [
-    [-w - 2, 0.085, -d - 2],
-    [w + 2, 0.085, -d - 2],
-    [w + 2, 0.085, d + 2],
-    [-w - 2, 0.085, d + 2],
-  ];
-  corners.forEach((from, i) => roads.push({ from, to: corners[(i + 1) % 4] }));
+  const pathWater = { halfWidth: w + 2, halfDepth: d + 2 };
+  const path = shorelinePoints(pathWater.halfWidth, pathWater.halfDepth).map(
+    ([x, , z]) => [x, 0.085, z] as Point,
+  );
+  path.forEach((from, i) =>
+    roads.push({ from, to: path[(i + 1) % path.length] }),
+  );
+  for (const dock of layout.docks) {
+    const horizontal = dock.bank === "north" || dock.bank === "south";
+    const to = shorePoint(
+      pathWater,
+      dock.bank,
+      dock.center[horizontal ? 0 : 2],
+    );
+    to[1] = 0.085;
+    roads.push({ from: harborPoint(dock, 0, -1.4, 0.085), to });
+  }
   for (const airport of layout.airports) {
+    const from = shorePoint(
+      pathWater,
+      airport.side === -1 ? "west" : "east",
+      airport.center[2] + 0.8,
+    );
+    from[1] = 0.085;
     roads.push({
-      from: [airport.side * (w + 2), 0.085, airport.center[2] + 0.8],
+      from,
       to: [
         airport.center[0] - airport.side * 2.1,
         0.085,
@@ -90,7 +108,8 @@ export function buildSurroundings(layout: LakeLayout) {
       const seed = col * 13.7 + row * 4.1;
       const px = x + Math.sin(seed) * 0.32,
         pz = z + Math.cos(seed * 1.3) * 0.3;
-      if (Math.abs(px) < w + 1.5 && Math.abs(pz) < d + 2.7) continue;
+      if (insideWater(px, pz, { halfWidth: w + 1.3, halfDepth: d + 1.3 }))
+        continue;
       if (Math.sin(px * 0.42 + pz * 0.18) + Math.cos(pz * 0.37) < -0.3)
         continue;
       if (

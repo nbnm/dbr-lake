@@ -3,7 +3,12 @@ import { useFrame } from "@react-three/fiber";
 import { Group, Mesh, ShaderMaterial } from "three";
 import { inHarbor, type LakeLayout, type Point } from "../layout";
 import { Countryside } from "./Countryside";
-import { lakeOutline } from "../shoreline";
+import {
+  lakeOutline,
+  terrainOutline,
+  insideWater,
+  shorelinePoints,
+} from "../shoreline";
 import { inSwimmingArea } from "../wildlife";
 import { inSailingArea } from "../landmarks";
 
@@ -147,7 +152,10 @@ export function LakeSurface({
     return ring;
   }, [w, d, water]);
   const ground = useMemo(() => {
-    const land = lakeOutline(layout.ground.halfWidth, layout.ground.halfDepth);
+    const land = terrainOutline(
+      layout.ground.halfWidth,
+      layout.ground.halfDepth,
+    );
     land.holes.push(water);
     return land;
   }, [layout, water]);
@@ -169,26 +177,31 @@ export function LakeSurface({
             0.085,
             Math.cos(i * 1.71) * d * 0.82,
           ] as Point,
-      ).filter((p) => !layout.docks.some((dock) => inHarbor(p, dock, 0.6))),
+      ).filter(
+        (p) =>
+          insideWater(p[0], p[2], layout.water, 0.7) &&
+          !layout.docks.some((dock) => inHarbor(p, dock, 0.6)),
+      ),
     [layout, w, d],
   );
-  const patches = useMemo(
-    () =>
-      Array.from({ length: 8 }, (_, i) => {
-        const side = i % 2 === 0 ? -1 : 1;
-        return [
-          side * (w - 0.55),
-          0.085,
-          -d * 0.72 + Math.floor(i / 2) * d * 0.47,
-        ] as Point;
-      }).filter(
-        (point) =>
-          !inSwimmingArea(point, layout.water) &&
-          !inSailingArea(point, layout.water) &&
-          !layout.docks.some((dock) => inHarbor(point, dock, 1.3)),
-      ),
-    [w, d, layout],
-  );
+  const patches = useMemo(() => {
+    const shore = shorelinePoints(w, d);
+    return Array.from({ length: 20 }, (_, i) => {
+      const index = Math.floor((i * shore.length) / 20);
+      const point = shore[index];
+      const before = shore[(index + shore.length - 1) % shore.length];
+      const after = shore[(index + 1) % shore.length];
+      const dx = after[0] - before[0],
+        dz = after[2] - before[2];
+      const length = Math.hypot(dx, dz);
+      return { point, normal: [dz / length, -dx / length] };
+    }).filter(
+      ({ point }) =>
+        !inSwimmingArea(point, layout.water) &&
+        !inSailingArea(point, layout.water) &&
+        !layout.docks.some((dock) => inHarbor(point, dock, 1.8)),
+    );
+  }, [w, d, layout]);
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.72, 0]}>
@@ -243,20 +256,24 @@ export function LakeSurface({
           reduced={reduced}
         />
       ))}
-      {patches.map((p, i) => (
+      {patches.map(({ point: p, normal: n }, i) => (
         <group key={i}>
           <Reeds
-            point={[p[0] + (p[0] < 0 ? -0.45 : 0.45), 0.075, p[2]]}
+            point={[p[0] + n[0] * 0.15, 0.075, p[2] + n[1] * 0.15]}
             seed={i}
           />
           <LilyPads
-            point={[p[0] + (p[0] < 0 ? 0.6 : -0.6), 0.086, p[2] + 0.7]}
+            point={[p[0] - n[0] * 0.9, 0.086, p[2] - n[1] * 0.9]}
             index={i}
             clock={clock}
             reduced={reduced}
           />
           <mesh
-            position={[p[0] + (p[0] < 0 ? -0.65 : 0.65), 0.12, p[2] - 0.6]}
+            position={[
+              p[0] + n[0] * 0.5 + n[1] * 0.6,
+              0.12,
+              p[2] + n[1] * 0.5 - n[0] * 0.6,
+            ]}
             rotation={[0.2, i * 2, 0.2]}
             scale={[0.5, 0.23, 0.34]}
           >
