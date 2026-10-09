@@ -1,4 +1,4 @@
-"""Invented, deterministic examples. Never represent these as live telemetry."""
+"""Invented runs with names modeled on workspace conventions, never live telemetry."""
 from copy import deepcopy
 from datetime import datetime, timezone
 from .estimates import HistoricalAttempt, estimate_duration
@@ -8,24 +8,32 @@ BASE = int(datetime(2026, 10, 8, 16, tzinfo=timezone.utc).timestamp() * 1000)
 END = BASE + 86_400_000
 REFERENCE = BASE + 600_000
 CAPTURE_ID = "demo-v5"
+# Keep the corrected scenario separate from previously persisted fixture events.
+STORE_REVISION = "workspace-names-v1"
 JOB_RUN_COUNT = 80
 SCHEMAS = [
-    ("sales", "raw", (-8, 0, -4)), ("sales", "refined", (-8, 0, 4)),
-    ("operations", "events", (0, 0, -5)), ("operations", "metrics", (0, 0, 5)),
-    ("finance", "ledger", (8, 0, -4)), ("finance", "reporting", (8, 0, 4)),
+    ("de_platform_offering", "de_bronze", (-8, 0, -4),
+     ["api_tracking_raw", "delivery_performance_raw", "carrier_performance_raw"]),
+    ("de_platform_offering", "de_silver", (-8, 0, 4),
+     ["api_tracking_parsed", "silver_delivery_performance", "silver_carrier_performance"]),
+    ("t1a_sandbox", "antares_raw", (0, 0, -5),
+     ["cohort_mthly_add", "cohort_mthly_eop", "cohort_mthly_flow"]),
+    ("t1a_sandbox", "antares_sigma", (0, 0, 5),
+     ["sales_mthly_flow", "sales_mthly_add", "bv_sales_mthly_add"]),
+    ("lakesentry_dev_stg", "ledger", (8, 0, -4),
+     ["usage_line_item", "work_unit_run", "warehouse"]),
+    ("lakesentry_dev_stg", "metrics", (8, 0, 4),
+     ["work_unit_run_cost", "weekly_spend", "query_fact"]),
 ]
 
 
 def topology() -> list[LakeObject]:
-    names = [["orders", "customers", "returns"], ["orders", "customers", "daily_sales"],
-             ["clickstream", "inventory", "shipments"], ["fulfillment", "sessions", "daily_ops"],
-             ["payments", "accounts", "invoices"], ["revenue", "balances", "forecast"]]
     return [LakeObject(id=f"demo-metastore:{catalog}.{schema}.{name}", metastore_id="demo-metastore",
                        catalog=catalog, schema_name=schema, name=name,
                        workspace_ids=["ws-east", "ws-west"],
                        position=(pos[0] + (i - 1) * .75, .18, pos[2]),
                        source_id=f"fixture:table:{catalog}.{schema}.{name}", observed_at=BASE)
-            for (catalog, schema, pos), tables in zip(SCHEMAS, names) for i, name in enumerate(tables)]
+            for catalog, schema, pos, tables in SCHEMAS for i, name in enumerate(tables)]
 
 
 def workspaces() -> list[Workspace]:
@@ -56,31 +64,31 @@ def events() -> list[SceneEvent]:
                                type=typ, payload=payload))
 
     specs = [
-        ("ingest-orders", "Ingest commerce events", "ws-east", "plane", 440, 240, 700, "succeeded", [], ["sales.raw.orders", "operations.events.clickstream", "finance.ledger.payments"], "configured", "Azure Event Hubs", 0),
-        ("refine-orders", "Enrich customer orders", "ws-east", "ship", 210, 300, 920, "succeeded", ["sales.raw.orders"], ["sales.refined.orders"], "observed", None, 0),
-        ("ingest-inventory", "Sync inventory", "ws-west", "plane", 480, 360, 860, "succeeded", [], ["operations.events.inventory"], "configured", "Supplier API", 0),
-        ("fulfillment", "Build fulfillment metrics", "ws-west", "ship", 390, 420, 780, "succeeded", ["operations.events.shipments"], ["operations.metrics.fulfillment"], "historical", None, 0),
-        ("payments", "Reconcile payments", "ws-east", "ship", 350, 360, 520, "failed", ["finance.ledger.payments"], ["finance.reporting.revenue"], "observed", None, 0),
-        ("payments-retry", "Reconcile payments · retry", "ws-east", "ship", 580, 360, 980, "succeeded", ["finance.ledger.payments"], ["finance.reporting.revenue"], "observed", None, 1),
-        ("daily-sales", "Aggregate daily sales", "ws-west", "buoy", 470, 480, 1100, "succeeded", ["sales.refined.orders", "sales.refined.customers"], ["sales.refined.daily_sales"], "observed", None, 0),
-        ("forecast", "Refresh revenue forecast", "ws-eu", "buoy", 300, 540, 1200, "succeeded", [], [], "unknown", None, 0),
-        ("unknown", "Ad hoc reconciliation", "ws-west", "buoy", 550, None, 1000, "cancelled", [], [], "unknown", None, 0),
-        ("queued-sessions", "Compact session events", "ws-east", "ship", 660, 300, 1080, "succeeded", ["operations.events.clickstream"], ["operations.metrics.sessions"], "configured", None, 0),
-        ("short-run", "Update account balances", "ws-east", "ship", 105, 60, 113, "succeeded", ["finance.ledger.accounts"], ["finance.reporting.balances"], "observed", None, 0),
+        ("ingest-orders", "ADF_SimLake_landing_pipeline1_Notebook1", "ws-east", "plane", 440, 240, 700, "succeeded", [], ["de_platform_offering.de_bronze.api_tracking_raw", "t1a_sandbox.antares_raw.cohort_mthly_add", "lakesentry_dev_stg.ledger.usage_line_item"], "configured", "Azure Event Hubs", 0),
+        ("refine-orders", "DEPlatform-api_tracking-silver-refresh", "ws-east", "ship", 210, 300, 920, "succeeded", ["de_platform_offering.de_bronze.api_tracking_raw"], ["de_platform_offering.de_silver.api_tracking_parsed"], "observed", None, 0),
+        ("ingest-inventory", "ADF_SimLake_cohort_mthly_eop_API_landing", "ws-west", "plane", 480, 360, 860, "succeeded", [], ["t1a_sandbox.antares_raw.cohort_mthly_eop"], "configured", "Sigma API", 0),
+        ("fulfillment", "Sigma Demo SimLake-sales_mthly_flow-tables-deploy", "ws-west", "ship", 390, 420, 780, "succeeded", ["t1a_sandbox.antares_raw.cohort_mthly_flow"], ["t1a_sandbox.antares_sigma.sales_mthly_flow"], "historical", None, 0),
+        ("payments", "LakeSentry-work_unit_run_cost-refresh", "ws-east", "ship", 350, 360, 520, "failed", ["lakesentry_dev_stg.ledger.usage_line_item"], ["lakesentry_dev_stg.metrics.work_unit_run_cost"], "observed", None, 0),
+        ("payments-retry", "LakeSentry-work_unit_run_cost-refresh", "ws-east", "ship", 580, 360, 980, "succeeded", ["lakesentry_dev_stg.ledger.usage_line_item"], ["lakesentry_dev_stg.metrics.work_unit_run_cost"], "observed", None, 1),
+        ("daily-sales", "DEPlatform-carrier_performance-silver-refresh", "ws-west", "buoy", 470, 480, 1100, "succeeded", ["de_platform_offering.de_silver.api_tracking_parsed", "de_platform_offering.de_silver.silver_delivery_performance"], ["de_platform_offering.de_silver.silver_carrier_performance"], "observed", None, 0),
+        ("forecast", "LakeSentry-query_fact-refresh", "ws-eu", "buoy", 300, 540, 1200, "succeeded", [], [], "unknown", None, 0),
+        ("unknown", "ADF_SimLake_validation_pipeline1_Notebook1", "ws-west", "buoy", 550, None, 1000, "cancelled", [], [], "unknown", None, 0),
+        ("queued-sessions", "Sigma Demo SimLake-sales_mthly_add-tables-deploy", "ws-east", "ship", 660, 300, 1080, "succeeded", ["t1a_sandbox.antares_raw.cohort_mthly_add"], ["t1a_sandbox.antares_sigma.sales_mthly_add"], "configured", None, 0),
+        ("short-run", "LakeSentry-weekly_spend-refresh", "ws-east", "ship", 105, 60, 113, "succeeded", ["lakesentry_dev_stg.ledger.work_unit_run"], ["lakesentry_dev_stg.metrics.weekly_spend"], "observed", None, 0),
     ]
     # Seventy further runs cover all remaining hours. Each hour is a small
     # pipeline: API landing, table movement, then an export after its inputs land.
     pipelines = [
-        ("commerce", "Commerce API", ["sales.raw.orders", "sales.raw.customers"], "sales.raw.orders", "sales.refined.orders", "Partner API"),
-        ("inventory", "Supplier API", ["operations.events.inventory"], "operations.events.inventory", "operations.metrics.daily_ops", "BI Warehouse"),
-        ("payments", "Payments API", ["finance.ledger.payments", "finance.ledger.invoices"], "finance.ledger.payments", "finance.reporting.revenue", "Finance Object Storage"),
-        ("customers", "Commerce API", ["sales.raw.customers"], "sales.raw.customers", "sales.refined.customers", "Partner API"),
-        ("shipments", "Supplier API", ["operations.events.shipments"], "operations.events.shipments", "operations.metrics.fulfillment", "BI Warehouse"),
-        ("balances", "Payments API", ["finance.ledger.accounts"], "finance.ledger.accounts", "finance.reporting.balances", "Finance Object Storage"),
+        ("tracking", "Tracking API", ["de_platform_offering.de_bronze.api_tracking_raw", "de_platform_offering.de_bronze.delivery_performance_raw"], "de_platform_offering.de_bronze.api_tracking_raw", "de_platform_offering.de_silver.api_tracking_parsed", "Power BI API", "DEPlatform-api_tracking"),
+        ("cohort", "Sigma API", ["t1a_sandbox.antares_raw.cohort_mthly_eop"], "t1a_sandbox.antares_raw.cohort_mthly_eop", "t1a_sandbox.antares_sigma.bv_sales_mthly_add", "Sigma API", "Sigma Demo SimLake-bv_sales_mthly_add"),
+        ("usage", "Databricks Billing API", ["lakesentry_dev_stg.ledger.usage_line_item", "lakesentry_dev_stg.ledger.warehouse"], "lakesentry_dev_stg.ledger.usage_line_item", "lakesentry_dev_stg.metrics.work_unit_run_cost", "FinOps Object Storage", "LakeSentry-work_unit_run_cost"),
+        ("delivery", "Tracking API", ["de_platform_offering.de_bronze.delivery_performance_raw"], "de_platform_offering.de_bronze.delivery_performance_raw", "de_platform_offering.de_silver.silver_delivery_performance", "Power BI API", "DEPlatform-delivery_performance"),
+        ("sales-flow", "Sigma API", ["t1a_sandbox.antares_raw.cohort_mthly_flow"], "t1a_sandbox.antares_raw.cohort_mthly_flow", "t1a_sandbox.antares_sigma.sales_mthly_flow", "Sigma API", "Sigma Demo SimLake-sales_mthly_flow"),
+        ("run-cost", "Databricks Billing API", ["lakesentry_dev_stg.ledger.work_unit_run"], "lakesentry_dev_stg.ledger.work_unit_run", "lakesentry_dev_stg.metrics.weekly_spend", "FinOps Object Storage", "LakeSentry-weekly_spend"),
     ]
     export_destinations = {}
     for hour in range(1, 24):
-        tag, api, landing, source, target, destination = pipelines[(hour - 1) % len(pipelines)]
+        tag, api, landing, source, target, destination, job_prefix = pipelines[(hour - 1) % len(pipelines)]
         offset = hour * 3600
         # Deterministic stagger, varied durations and overlap across hour edges.
         stagger = ((hour * 37) % 90)
@@ -89,14 +97,14 @@ def events() -> list[SceneEvent]:
         export_start = transform_finish + 60
         export_finish = min(export_start + 720 + (hour % 4) * 120, 86_340)
         specs.extend([
-            (f"api-{tag}-{hour:02}", f"Land {tag} data from {api}", "ws-east" if hour % 2 else "ws-west", "plane", ingest_start, 780, ingest_start + 780, "succeeded", [], landing, "observed", api, 0),
-            (f"move-{tag}-{hour:02}", f"Transform {source} → {target}", "ws-west" if hour % 2 else "ws-east", "ship", transform_start, transform_finish - transform_start, transform_finish, "succeeded", [source], [target], "observed", None, 0),
-            (f"export-{tag}-{hour:02}", f"Export {target} to {destination}", "ws-west", "plane", export_start, export_finish - export_start, export_finish, "cancelled" if hour == 11 else "succeeded", [target], [], "observed", None, 0),
+            (f"api-{tag}-{hour:02}", f"ADF_SimLake_{tag.replace('-', '_')}_API_landing", "ws-east" if hour % 2 else "ws-west", "plane", ingest_start, 780, ingest_start + 780, "succeeded", [], landing, "observed", api, 0),
+            (f"move-{tag}-{hour:02}", f"{job_prefix}-tables-deploy" if job_prefix.startswith("Sigma") else f"{job_prefix}-refresh", "ws-west" if hour % 2 else "ws-east", "ship", transform_start, transform_finish - transform_start, transform_finish, "succeeded", [source], [target], "observed", None, 0),
+            (f"export-{tag}-{hour:02}", f"{job_prefix}-export", "ws-west", "plane", export_start, export_finish - export_start, export_finish, "cancelled" if hour == 11 else "succeeded", [target], [], "observed", None, 0),
         ])
         export_destinations[f"export-{tag}-{hour:02}"] = destination
     # Bridge the opening examples to the first hourly pipeline: exactly 80
-    # parent runs, plus the payment repair as a separate execution attempt.
-    specs.append(("publish-sales", "Publish daily sales to finance reporting", "ws-east", "ship", 1500, 2400, 3900, "succeeded", ["sales.refined.daily_sales"], ["finance.reporting.forecast"], "observed", None, 0))
+    # parent runs, plus the cost-refresh repair as a separate execution attempt.
+    specs.append(("publish-sales", "LakeSentry-query_fact-tables-deploy", "ws-east", "ship", 1500, 2400, 3900, "succeeded", ["de_platform_offering.de_silver.silver_carrier_performance"], ["lakesentry_dev_stg.metrics.query_fact"], "observed", None, 0))
     for index, (id, name, ws, kind, start, duration, finish, result, sources, targets, evidence, external, retry) in enumerate(specs):
         signature = f"{ws}:job-{index if not retry else 4}:reconcile:incremental:v1"
         launch = BASE + start * 1000

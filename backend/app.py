@@ -27,7 +27,7 @@ def snapshot(store: EventStore, at: int) -> dict:
         elif event.type == "collection.gap":
             gaps.append({**event.payload, "workspace_id": event.workspace_id})
     return {"mode": "demo", "capture_id": fixtures.CAPTURE_ID, "captured_at": fixtures.END, "warnings": [],
-            "history_note": f"Simulated 24-hour capture: {fixtures.JOB_RUN_COUNT} job runs plus one repair attempt. All job data is invented.",
+            "history_note": f"Simulated 24-hour capture: {fixtures.JOB_RUN_COUNT} job runs plus one repair attempt. Names follow workspace conventions. All job data is invented.",
             "account_id": "t1a-demo", "server_time": at, "cursor": cursor,
             "range": {"start": fixtures.BASE, "end": fixtures.END},
             "objects": [o.model_dump() for o in fixtures.topology()],
@@ -39,7 +39,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         if os.environ.get("LAKE_MODE", "demo") != "demo":
             raise RuntimeError("Live collection is not enabled. Configure and test viewer authorization before adding real metadata.")
-        path = db_path or os.environ.get("LAKE_DB_PATH", f".data/{fixtures.CAPTURE_ID}.sqlite")
+        path = db_path or os.environ.get("LAKE_DB_PATH", f".data/{fixtures.CAPTURE_ID}-{fixtures.STORE_REVISION}.sqlite")
         store = EventStore(path)
         store.append_many(fixtures.events())
         app.state.store = store

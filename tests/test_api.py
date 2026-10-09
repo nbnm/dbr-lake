@@ -64,9 +64,9 @@ def test_multi_destination_ingestion_is_one_attempt_with_frozen_evidence(client)
     assert all(a['estimate'] == states[0]['estimate'] for a in states)
     assert {a['task_run_id'] for a in states} == {'99000'}
     assert states[0]['route']['target_ids'] == [
-        'demo-metastore:sales.raw.orders',
-        'demo-metastore:operations.events.clickstream',
-        'demo-metastore:finance.ledger.payments',
+        'demo-metastore:de_platform_offering.de_bronze.api_tracking_raw',
+        'demo-metastore:t1a_sandbox.antares_raw.cohort_mthly_add',
+        'demo-metastore:lakesentry_dev_stg.ledger.usage_line_item',
     ]
     scene = client.get('/api/scene').json()
     assert sum(a['id'] == 'ingest-orders' for a in scene['attempts']) == 1
