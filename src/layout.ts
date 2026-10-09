@@ -8,11 +8,7 @@ import {
   SCHEMA_PORTS,
   type NavigationLayout,
 } from "./navigation";
-import {
-  canadianFlagBounds,
-  t1aShoreSignBounds,
-  zeppelinBounds,
-} from "./landmarks";
+import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
 
 export type Point = [number, number, number];
@@ -421,7 +417,6 @@ export function buildLakeLayout(
     ground.halfWidth,
     Math.max(
       zeppelinBounds({ halfWidth, halfDepth }).max[1],
-      t1aShoreSignBounds({ halfWidth, halfDepth }).max[1],
       canadianFlagBounds({ halfWidth, halfDepth }).max[1],
       cruiseHeight(Math.min(AIR_LEVELS - 1, navigation.lanes.plane - 1)) + 0.4,
     ),
@@ -501,7 +496,6 @@ export function cameraFit(
       max: [antaresPoint(layout)[0] + 1.5, 8.2, antaresPoint(layout)[2] + 1.2],
     },
     zeppelinBounds(layout.water),
-    t1aShoreSignBounds(layout.water),
     canadianFlagBounds(layout.water),
     ...layout.airports.map((a) => ({
       min: [

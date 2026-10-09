@@ -30,7 +30,7 @@ import { Dock, Airport } from "./scene/HarborModels";
 import { PaperPlane, PaperShip } from "./scene/PaperModels";
 import { LakeSurface } from "./scene/LakeSurface";
 import { SecondStackSailboat } from "./scene/SecondStackSailboat";
-import { AlchemistZeppelin, T1AShoreSign } from "./scene/BrandLandmarks";
+import { AlchemistZeppelin, T1ABottomLogo } from "./scene/BrandLandmarks";
 import { CanadianFlagpole } from "./scene/CanadianFlagpole";
 import {
   AntaresSkyscraper,
@@ -534,7 +534,7 @@ export default function LakeScene({
                   />
                   <AntaresSkyscraper point={antaresPoint(layout)} />
                   <SecondStackSailboat water={layout.water} reduced={reduced} />
-                  <T1AShoreSign water={layout.water} />
+                  <T1ABottomLogo />
                   <CanadianFlagpole water={layout.water} reduced={reduced} />
                   <AlchemistZeppelin water={layout.water} reduced={reduced} />
                   {layout.docks.map((dock) => (

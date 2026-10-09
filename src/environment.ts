@@ -5,7 +5,7 @@ import {
   type LakeLayout,
   type Point,
 } from "./layout";
-import { canadianFlag, t1aShoreSign } from "./landmarks";
+import { canadianFlag } from "./landmarks";
 
 export interface FieldPatch {
   center: Point;
@@ -57,7 +57,6 @@ export function buildSurroundings(layout: LakeLayout) {
   const landmarks = [
     lighthousePoint(layout),
     antaresPoint(layout),
-    t1aShoreSign(layout.water).point,
     canadianFlag(layout.water).point,
   ];
   const nearRoad = (x: number, z: number) =>
@@ -111,7 +110,7 @@ export function buildSurroundings(layout: LakeLayout) {
       )
         continue;
       if (
-        layout.docks.some(dock => inHarbor([px, 0, pz], dock, 0.8)) ||
+        layout.docks.some((dock) => inHarbor([px, 0, pz], dock, 0.8)) ||
         landmarks.some(
           (tower) => Math.hypot(px - tower[0], pz - tower[2]) < 2.2,
         ) ||

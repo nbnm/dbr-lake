@@ -100,29 +100,3 @@ export function zeppelinBounds(water: LakeLayout["water"]) {
     ] as Point,
   };
 }
-
-export function t1aShoreSign(water: LakeLayout["water"]) {
-  const width = Math.max(5.2, Math.min(13, water.halfWidth * 0.3));
-  const logoWidth = width - 0.75;
-  const height = (logoWidth * 350) / 911 + 0.6;
-  return {
-    point: [0, 0.08, water.halfDepth + 4.1] as Point,
-    width,
-    height,
-    logoWidth,
-    centerY: 0.35 + height / 2,
-  };
-}
-
-export function t1aShoreSignBounds(water: LakeLayout["water"]) {
-  const { point, width, height, centerY } = t1aShoreSign(water);
-  // The panel faces the camera, so include its full yaw sweep.
-  return {
-    min: [-width / 2, 0, point[2] - width / 2] as Point,
-    max: [
-      width / 2,
-      point[1] + centerY + height / 2,
-      point[2] + width / 2,
-    ] as Point,
-  };
-}

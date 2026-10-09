@@ -71,15 +71,14 @@ export function LandmarkLink({
           height: value.height,
         };
       });
-      if (size.width < 600)
-        boxes.push({
-          key: "T1A",
-          x: size.width / 2,
-          y: size.height - 80,
-          width: 98,
-          height: 48,
-          pinned: true,
-        });
+      boxes.push({
+        key: "T1A",
+        x: size.width / 2,
+        y: size.height - 104,
+        width: 188,
+        height: 84,
+        pinned: true,
+      });
       return positionPlaques(boxes, size.width, size.height).get(name)!;
     },
     [plaques, name],

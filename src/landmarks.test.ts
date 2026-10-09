@@ -12,8 +12,6 @@ import { buildSurroundings } from "./environment";
 import {
   canadianFlag,
   canadianFlagBounds,
-  t1aShoreSign,
-  t1aShoreSignBounds,
   zeppelinBounds,
   zeppelinDimensions,
   zeppelinPose,
@@ -89,16 +87,9 @@ describe("Alchemist's ambient sky lane", () => {
 });
 
 describe("visible brand landmarks", () => {
-  it("keeps the T1A sign on the foreground shore and the flag diagonally opposite the lighthouse, with clear foundations", () => {
+  it("keeps the flag diagonally opposite the lighthouse, with clear foundations", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
-      const sign = t1aShoreSign(lake.water);
-      expect(sign.point[2]).toBeGreaterThan(lake.water.halfDepth + 3);
-      expect(Math.abs(sign.point[2])).toBeLessThan(lake.ground.halfDepth - 0.8);
-      expect(sign.point[1] + sign.centerY - sign.height / 2).toBeGreaterThan(
-        0.3,
-      );
-      expect(sign.centerY - sign.height / 2).toBeLessThan(0.5);
       const flag = canadianFlag(lake.water);
       const lighthouse = lighthousePoint(lake);
       expect(flag.point[0]).toBeGreaterThan(lake.water.halfWidth);
@@ -109,14 +100,16 @@ describe("visible brand landmarks", () => {
       expect(Math.abs(flag.point[2])).toBeLessThan(lake.ground.halfDepth - 1);
       expect(flag.poleHeight - flag.height - 0.25).toBeGreaterThan(5);
       for (const tree of buildSurroundings(lake).trees)
-        for (const point of [sign.point, flag.point])
-          expect(
-            Math.hypot(tree.point[0] - point[0], tree.point[2] - point[2]),
-          ).toBeGreaterThan(2.2);
+        expect(
+          Math.hypot(
+            tree.point[0] - flag.point[0],
+            tree.point[2] - flag.point[2],
+          ),
+        ).toBeGreaterThan(2.2);
     }
   });
 
-  it("frames the flag, complete flight loop and desktop T1A sign across viewport sizes", () => {
+  it("frames the flag and complete flight loop across viewport sizes", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
       for (const [width, height] of [
@@ -148,7 +141,6 @@ describe("visible brand landmarks", () => {
         for (const bounds of [
           zeppelinBounds(lake.water),
           canadianFlagBounds(lake.water),
-          ...(width >= 600 ? [t1aShoreSignBounds(lake.water)] : []),
         ])
           for (const x of [bounds.min[0], bounds.max[0]])
             for (const y of [bounds.min[1], bounds.max[1]])
