@@ -268,6 +268,7 @@ export default function App() {
               layout.airports,
               layout.piers,
               selectedDestination(a, selected),
+              layout,
             ),
             clock.current,
           ).position.toArray() as [number, number, number],

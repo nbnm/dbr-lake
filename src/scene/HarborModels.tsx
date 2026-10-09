@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { Line, RoundedBox } from "@react-three/drei";
 import { BufferGeometry, Float32BufferAttribute, Group } from "three";
 import type { AirportLayout, DockLayout, PierLayout, Point } from "../layout";
+import { harborPoint } from "../layout";
 import type { Selection } from "../types";
 import { Label } from "./SceneLabel";
 
@@ -105,6 +106,26 @@ export function Dock({
                 <meshStandardMaterial color="#927e5a" />
               </mesh>
             ))}
+            {dock.piers.map((pier) => {
+              const root = harborPoint(pier, 0, -1.1);
+              const dx = root[0] - dock.center[0],
+                dz = root[2] - dock.center[2];
+              const x =
+                dx * Math.cos(dock.rotation) - dz * Math.sin(dock.rotation);
+              const z =
+                dx * Math.sin(dock.rotation) + dz * Math.cos(dock.rotation);
+              return (
+                <RoundedBox
+                  key={pier.id}
+                  args={[Math.abs(x) + 0.8, 0.22, 0.72]}
+                  radius={0.05}
+                  smoothness={1}
+                  position={[x / 2, 0.12, z]}
+                >
+                  <meshStandardMaterial color="#b89b6f" />
+                </RoundedBox>
+              );
+            })}
           </>
         )}
         <RoundedBox
@@ -188,7 +209,7 @@ export function Pier({
       onPointerOut={unhover}
     >
       <RoundedBox
-        args={[w + 0.5, 0.32, 2.1]}
+        args={[1.8, 0.32, 2.1]}
         radius={0.12}
         smoothness={2}
         position={[0, -0.06, -0.5]}
@@ -239,17 +260,15 @@ export function Pier({
       {[-w / 2 + 0.5, w / 2 - 0.5].map((x) => (
         <Bollard key={x} position={[x, 0.2, 2.1]} />
       ))}
-      <mesh position={[-w / 2 + 0.15, 0.22, -0.97]}>
+      <mesh position={[-0.5, 0.22, -0.97]}>
         <boxGeometry args={[0.33, 0.35, 0.31]} />
         <meshStandardMaterial color="#ad8d61" />
       </mesh>
-      <mesh position={[-w / 2 + 0.15, 0.23, -0.805]}>
+      <mesh position={[-0.5, 0.23, -0.805]}>
         <boxGeometry args={[0.018, 0.32, 0.015]} />
         <meshStandardMaterial color="#7f7557" />
       </mesh>
-      {!dock.branching && (
-        <Tree position={[w / 2 - 0.2, 0.1, -0.9]} scale={0.65} />
-      )}
+      {!dock.branching && <Tree position={[0.95, 0.1, -1.15]} scale={0.65} />}
       <Line
         points={[
           [-w / 2, 0.41, 0.8],

@@ -9,6 +9,7 @@ import {
 import type { Attempt, LakeObject } from "./types";
 import {
   schemaId,
+  harborPoint,
   type AirportLayout,
   type LakeLayout,
   type PierLayout,
@@ -45,7 +46,8 @@ export function makePath(
   airports: AirportLayout[] = [],
   docks: PierLayout[] = [],
   destinationId?: string,
-  layout?: Pick<LakeLayout, "water" | "navigation">,
+  layout?: Pick<LakeLayout, "water" | "navigation"> &
+    Partial<Pick<LakeLayout, "docks">>,
 ) {
   const source = objects.find((o) => o.id === a.route.source_ids[0]);
   const exporting = isExport(a);
@@ -184,12 +186,39 @@ export function makePath(
         ).multiplyScalar(1.6),
       );
     const gate = (p: Vector3, pier: PierLayout) => {
+      const points: Vector3[] = [];
+      const catalog = pier.branching
+        ? layout.docks?.find((d) => d.id === pier.catalog_id)
+        : undefined;
+      if (catalog) {
+        const dx = p.x - catalog.center[0],
+          dz = p.z - catalog.center[2];
+        const x =
+          dx * Math.cos(catalog.rotation) - dz * Math.sin(catalog.rotation);
+        const z =
+          dx * Math.sin(catalog.rotation) + dz * Math.cos(catalog.rotation);
+        // Turn in the gap between rows, then pass outside the entire branching
+        // harbor. Going straight ahead would cross the next schema's pier.
+        const side = x < 0 ? -1 : 1;
+        const outerX =
+          side * Math.max(catalog.width / 2 + 2.1, Math.abs(x) + 0.5);
+        points.push(new Vector3(...harborPoint(catalog, outerX, z, height)));
+        p = new Vector3(
+          ...harborPoint(
+            catalog,
+            outerX,
+            Math.max(catalog.depth + 3, z + 1.2),
+            height,
+          ),
+        );
+        points.push(p);
+      }
       const x = Math.max(bounds.minX, Math.min(bounds.maxX, p.x));
       const z = Math.max(bounds.minZ, Math.min(bounds.maxZ, p.z));
       // Clear the entire bank before turning across its promenade or branches.
       return pier.bank === "north" || pier.bank === "south"
-        ? [new Vector3(p.x, height, z), new Vector3(x, height, z)]
-        : [new Vector3(x, height, p.z), new Vector3(x, height, z)];
+        ? [...points, new Vector3(p.x, height, z), new Vector3(x, height, z)]
+        : [...points, new Vector3(x, height, p.z), new Vector3(x, height, z)];
     };
     const sourceGates = gate(exit, sourceDock),
       targetGates = gate(approach, targetDock);

@@ -51,8 +51,38 @@ export function shorePoint(
   return horizontal ? [along, 0, sign * edge] : [sign * edge, 0, along];
 }
 
-// Docks stay on the long banks; this shared offset seats the whole promenade
-// across the shoreline instead of anchoring only its midpoint.
+// Use the same polygon as the rendered water, so the inward axis is exactly
+// perpendicular to the local shore segment rather than a compass direction.
+export function shoreFrame(water: WaterSize, bank: Shore, along: number) {
+  const target = shorePoint(water, bank, along);
+  const points = shorelinePoints(water.halfWidth, water.halfDepth);
+  let distance = Infinity;
+  let point: Point = target;
+  let rotation = 0;
+  points.forEach((a, i) => {
+    const b = points[(i + 1) % points.length];
+    const dx = b[0] - a[0],
+      dz = b[2] - a[2];
+    const length = Math.hypot(dx, dz);
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((target[0] - a[0]) * dx + (target[2] - a[2]) * dz) / length ** 2,
+      ),
+    );
+    const candidate: Point = [a[0] + t * dx, 0, a[2] + t * dz];
+    const gap = Math.hypot(candidate[0] - target[0], candidate[2] - target[2]);
+    if (gap < distance) {
+      distance = gap;
+      point = candidate;
+      rotation = Math.atan2(-dz / length, dx / length);
+    }
+  });
+  return { point, rotation };
+}
+
+// Seat the catalog's bank-aligned promenade across the whole shoreline.
 export function dockShoreInset(
   bank: Shore,
   along: number,

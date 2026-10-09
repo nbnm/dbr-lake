@@ -105,7 +105,10 @@ describe("shore and countryside", () => {
         for (const x of [-dock.width / 2, 0, dock.width / 2]) {
           const dry = harborPoint(dock, x, -1.4),
             wet = harborPoint(dock, x, -0.2);
-          expect(insideLake(layout, dry[0], dry[2])).toBe(false);
+          expect(
+            insideLake(layout, dry[0], dry[2]),
+            `${count} catalogs: ${dock.catalog} ${dock.bank} x=${x}, center=${dock.center}, angle=${dock.rotation}`,
+          ).toBe(false);
           expect(insideLake(layout, wet[0], wet[2])).toBe(true);
         }
         for (const pier of dock.piers) {
@@ -360,6 +363,20 @@ describe("replay navigation", () => {
       const x = dx * Math.cos(system.rotation) - dz * Math.sin(system.rotation);
       const z = dx * Math.sin(system.rotation) + dz * Math.cos(system.rotation);
       expect(Math.abs(x) > 1.7 || z < -1 || z > system.depth + 1).toBe(true);
+      for (const pier of system.piers) {
+        const root = harborPoint(pier, 0, -1.1);
+        const dx = root[0] - system.center[0],
+          dz = root[2] - system.center[2];
+        const rx =
+          dx * Math.cos(system.rotation) - dz * Math.sin(system.rotation);
+        const rz =
+          dx * Math.sin(system.rotation) + dz * Math.cos(system.rotation);
+        expect(
+          x < Math.min(0, rx) - 1.2 ||
+            x > Math.max(0, rx) + 1.2 ||
+            Math.abs(z - rz) > 1.16,
+        ).toBe(true);
+      }
       for (const pier of lake.piers) {
         const dx = p.x - pier.center[0],
           dz = p.z - pier.center[2];

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Attempt, LakeObject } from "./types";
 import { buildLakeLayout, cameraFit, schemaId, harborPoint } from "./layout";
 import { makePath, positionAt } from "./motion";
-import { insideWater } from "./shoreline";
+import { insideWater, shorelinePoints } from "./shoreline";
 
 function inventory(schemas: number, tables = 3): LakeObject[] {
   return Array.from({ length: schemas * tables }, (_, i) => ({
@@ -58,6 +58,58 @@ function ingestion(id: string, target: string, name = "Event Hubs"): Attempt {
 }
 
 describe("inventory-driven harbor", () => {
+  it("places every schema pier perpendicular to its rendered shoreline, including branches on all four banks", () => {
+    const branches = Array.from({ length: 96 }, (_, i) => ({
+      ...inventory(1, 1)[0],
+      id: `m:c${Math.floor(i / 12)}.s${i % 12}.t`,
+      catalog: `c${Math.floor(i / 12)}`,
+      schema_name: `s${i % 12}`,
+    }));
+    for (const tables of [
+      inventory(1),
+      inventory(10),
+      inventory(48),
+      branches,
+    ]) {
+      const lake = buildLakeLayout(tables);
+      const outline = shorelinePoints(
+        lake.water.halfWidth,
+        lake.water.halfDepth,
+      );
+      for (const pier of lake.piers) {
+        const [x, , z] = pier.shoreAnchor;
+        const nx = Math.sin(pier.rotation),
+          nz = Math.cos(pier.rotation);
+        const perpendicular = outline.some((a, i) => {
+          const b = outline[(i + 1) % outline.length];
+          const dx = b[0] - a[0],
+            dz = b[2] - a[2],
+            length = Math.hypot(dx, dz);
+          const t = ((x - a[0]) * dx + (z - a[2]) * dz) / length ** 2;
+          const distance = Math.hypot(x - a[0] - t * dx, z - a[2] - t * dz);
+          return (
+            t >= -1e-8 &&
+            t <= 1 + 1e-8 &&
+            distance < 1e-8 &&
+            Math.abs((nx * dx + nz * dz) / length) < 1e-8
+          );
+        });
+        expect(
+          perpendicular,
+          `${pier.catalog}.${pier.schema}: 90° to the shore`,
+        ).toBe(true);
+        expect(insideWater(x + nx * 0.3, z + nz * 0.3, lake.water)).toBe(true);
+        expect(insideWater(x - nx * 0.3, z - nz * 0.3, lake.water)).toBe(false);
+        for (const side of [-pier.width / 2, pier.width / 2]) {
+          const front = harborPoint(pier, side, 2.3);
+          expect(insideWater(front[0], front[2], lake.water)).toBe(true);
+        }
+      }
+    }
+    expect(
+      new Set(buildLakeLayout(branches).piers.map((p) => p.bank)).size,
+    ).toBe(4);
+  });
   it("groups schemas as piers of catalog docks and retains empty catalog/schema inventory", () => {
     const tables = inventory(6);
     const layout = buildLakeLayout(tables);
@@ -257,8 +309,10 @@ describe("inventory-driven harbor", () => {
     expect(lake.objects).toHaveLength(tables.length);
     for (const pier of dock.piers) {
       const attachment = harborPoint(pier, 0, -1.4);
-      // Every branch overlaps the continuous central walkway.
-      expect(Math.abs(attachment[0] - dock.center[0])).toBeLessThan(0.9);
+      // Short crosswalks join each shore-facing pier to the central spine.
+      expect(Math.abs(attachment[0] - dock.center[0])).toBeLessThan(
+        dock.width / 2,
+      );
       expect(attachment[2]).toBeGreaterThan(dock.center[2]);
       expect(attachment[2]).toBeLessThan(dock.center[2] + dock.depth);
     }

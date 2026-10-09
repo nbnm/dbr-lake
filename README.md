@@ -12,7 +12,7 @@ _Recorded from the running app with explicitly simulated metadata and 60× playb
 
 ## What the lake shows
 
-- **Catalog docks → schema piers.** The lake renders only schemas referenced by lineage or supported routes in the selected 24-hour capture, and their parent catalogs. Unused and empty catalogs/schemas are omitted. Every schema has one pier, regardless of table count. Catalog docks are distributed across all four shores. Catalogs with many schemas use a narrow central walkway with piers branching from both sides. Tables appear only in details, with the complete inventory retained. Lake size follows this visible topology; positions stay stable during filtering and seeking.
+- **Catalog docks → schema piers.** The lake renders only schemas referenced by lineage or supported routes in the selected 24-hour capture, and their parent catalogs. Unused and empty catalogs/schemas are omitted. Every schema has one pier, regardless of table count. Catalog docks are distributed across all four shores. Each pier points into the lake at 90° to its local shoreline. Catalogs with many schemas use paired piers joined to a narrow central walkway by short crosswalks. Tables appear only in details, with the complete inventory retained. Lake size follows this visible topology; positions stay stable during filtering and seeking.
 - **One plane per landing destination.** A job writing to several tables can have several planes. Each opens the same job-run status and its destination details without inflating execution counts.
 - **Outbound exports.** Pale gold paper planes depart from source schema piers and land at external destination airports. Clicking an export reveals its source table, destination, status, and job-run link. Imported exports require a single observed table source and one external path destination; mixed or ambiguous routes stay as stationary processing paper ships.
 - **Paper ships.** A single observed table source can drive a transformation route. Missing or ambiguous lineage remains visibly unresolved, with a neutral paper ship holding its position rather than an invented journey.
@@ -95,12 +95,12 @@ Imports submit application-owned metadata `SELECT` queries to a SQL warehouse. P
 | Regional system-table and lineage import         | `backend/system_import.py`                                  |
 | Capture assembly and legacy import compatibility | `backend/replay_import.py`                                  |
 | Local-only configuration and replay endpoints    | `backend/app.py`                                            |
-| Real-history overlay with 84 simulated runs       | `backend/simulation.py`                                     |
+| Real-history overlay with 84 simulated runs      | `backend/simulation.py`                                     |
 | Stable harbor layout and navigation              | `src/layout.ts`, `src/navigation.ts`, `src/traffic.ts`      |
 | Configuration, playback, and inspection          | `src/Configuration.tsx`, `src/App.tsx`, `src/Inspector.tsx` |
 | Paper vessels, landmarks, and ambient swimming   | `src/scene/`, `src/motion.ts`, `src/wildlife.ts`            |
 
-Large catalogs share a shore-connected wooden spine with paired schema branches. Swimming and cruising corridors leave clearance around these structures. Schema piers contain shared traffic ports and no table models or table captions. Table count does not affect a pier's width. Every table remains available in the inspector and route metadata. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable; mixed captures label real and simulated runs individually.
+Large catalogs share a shore-connected wooden spine with paired schema piers and short crosswalks. Ships turn between pier rows and leave through outer clearance corridors; swimming routes keep clear of the entire structure. Schema piers contain shared traffic ports and no table models or table captions. Table count does not affect a pier's width. Every table remains available in the inspector and route metadata. The scene prioritizes active, selected, and recently completed executions, rendering up to 200 execution attempts plus destination planes. The full imported activity list stays searchable; mixed captures label real and simulated runs individually.
 
 ## Validate
 

@@ -10,7 +10,7 @@ import {
 } from "./navigation";
 import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
-import { dockShoreInset, shoreRadius } from "./shoreline";
+import { dockShoreInset, shoreFrame, shoreRadius } from "./shoreline";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -37,6 +37,7 @@ export interface PierLayout {
   schema: string;
   metastore: string;
   center: Point;
+  shoreAnchor: Point;
   rotation: number;
   bank: Shore;
   branching: boolean;
@@ -203,6 +204,10 @@ export function buildLakeLayout(
     a.localeCompare(b),
   );
   const navigation = buildNavigation(attempts, [...byId.values()]);
+  const portRows = new Map<string, number>();
+  for (const slot of Object.values(navigation.slots))
+    for (const [id, row] of Object.entries(slot.ports))
+      portRows.set(id, Math.max(portRows.get(id) ?? 0, row));
   const specs = entries.map(([id, catalog]) => {
     const groups = [...catalog.schemas.entries()].sort(([a], [b]) =>
       a.localeCompare(b),
@@ -210,10 +215,15 @@ export function buildLakeLayout(
     // Schema piers have one visual footprint, regardless of table density.
     const branching = groups.length > 3;
     const pierWidths = groups.map(() => (branching ? 4.2 : 6.4));
+    let maxPortRow = 0;
+    for (const [, group] of groups)
+      for (const object of group.objects)
+        maxPortRow = Math.max(maxPortRow, portRows.get(object.id) ?? 0);
+    const rowSpacing = 9.6 + maxPortRow * PORT_ROW_SPACING;
     const width = Math.max(
       4.5,
       branching
-        ? 8.6
+        ? 13
         : pierWidths.reduce((sum, w) => sum + w, 0) +
             Math.max(0, groups.length - 1) * 1.2,
     );
@@ -224,7 +234,10 @@ export function buildLakeLayout(
       pierWidths,
       width,
       branching,
-      depth: branching ? Math.ceil(groups.length / 2) * 5.6 + 0.4 : 3.4,
+      rowSpacing,
+      depth: branching
+        ? 5.6 + (Math.ceil(groups.length / 2) - 1) * rowSpacing
+        : 3.4,
     };
   });
   const shores: Shore[] = ["north", "south", "west", "east"];
@@ -361,7 +374,10 @@ export function buildLakeLayout(
         index < 2
           ? [0, 0, (index === 0 ? -1 : 1) * (halfDepth - offset - 0.55)]
           : [(index === 2 ? -1 : 1) * (halfWidth - offset - 0.55), 0, 0];
-      harborDepth[index] = Math.max(harborDepth[index], spec.depth + offset);
+      harborDepth[index] = Math.max(
+        harborDepth[index],
+        spec.depth + offset + 0.55,
+      );
       const center = harborPoint(
         { center: origin, rotation },
         along + spec.width / 2,
@@ -384,6 +400,28 @@ export function buildLakeLayout(
       dock.piers = spec.groups.map(([id, group], i) => {
         const side = i % 2 ? 1 : -1;
         const width = spec.pierWidths[i];
+        const origin = harborPoint(
+          dock,
+          spec.branching ? side * 3.8 : px + width / 2,
+          0,
+        );
+        const shoreAlong = origin[index < 2 ? 0 : 2];
+        const frame = shoreFrame(
+          { halfWidth, halfDepth },
+          shores[index],
+          shoreAlong,
+        );
+        const center = spec.branching
+          ? harborPoint(
+              dock,
+              side * 3.8,
+              3 + Math.floor(i / 2) * spec.rowSpacing,
+            )
+          : harborPoint(
+              { center: frame.point, rotation: frame.rotation },
+              0,
+              0.6,
+            );
         const pier: PierLayout = {
           id,
           catalog_id: dock.id,
@@ -392,12 +430,9 @@ export function buildLakeLayout(
           metastore: dock.metastore,
           bank: dock.bank,
           branching: dock.branching,
-          center: harborPoint(
-            dock,
-            spec.branching ? side * 1.2 : px + width / 2,
-            spec.branching ? 3 + Math.floor(i / 2) * 5.6 : 0.05,
-          ),
-          rotation: rotation + (spec.branching ? (side * Math.PI) / 2 : 0),
+          center,
+          shoreAnchor: frame.point,
+          rotation: frame.rotation,
           width,
           slots: Math.min(group.objects.length, SCHEMA_PORTS),
           objects: [...group.objects].sort((a, b) => a.id.localeCompare(b.id)),

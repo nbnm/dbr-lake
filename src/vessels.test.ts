@@ -95,7 +95,17 @@ describe("outbound export flights", () => {
       instance.destinationId,
       lake,
     );
-    expect(path.from.x).toBe(source.position[0]);
+    const pier = lake.piers.find((p) =>
+      p.objects.some((o) => o.id === source.id),
+    )!;
+    const dx = path.from.x - source.position[0],
+      dz = path.from.z - source.position[2];
+    expect(
+      dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation),
+    ).toBeCloseTo(0, 8);
+    expect(
+      dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation),
+    ).toBeGreaterThan(0);
     expect(Math.abs(path.from.z)).toBeLessThan(lake.water.halfDepth);
     expect(path.to.toArray()).toEqual(airport.departure);
     expect(positionAt(outbound, path, 1000).position.toArray()).toEqual(
