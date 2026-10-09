@@ -11,6 +11,17 @@ SIMULATION_VERSION = "workspace-overlay-v2"
 PROVENANCE = "workspace_simulation"
 
 
+def normalize_simulated_job_names(capture):
+    """Clean legacy names on a decoded capture without changing stored history."""
+    attempts = [*capture['checkpoint']['attempts'],
+                *(e['payload'] for e in capture['events'] if e['type'] == 'attempt.upsert')]
+    for attempt in attempts:
+        if attempt.get('provenance') == PROVENANCE:
+            attempt['name'] = re.sub(r'-sim-(\d+-(?:API-landing|tables-deploy|export))$',
+                                     r'-\1', attempt['name'])
+    return capture
+
+
 def captured_attempts(capture):
     attempts = {a['id']: a for a in capture['checkpoint']['attempts']}
     for event in capture['events']:
@@ -115,7 +126,7 @@ def _job_name(template, serial, kind):
     base = re.sub(r'-[0-9a-f]{12}(?=-tables-deploy$)', '', base)
     base = base.removesuffix('-tables-deploy')
     suffix = {'landing': 'API-landing', 'transfer': 'tables-deploy', 'export': 'export'}[kind]
-    return f'{base}-sim-{serial:02}-{suffix}'
+    return f'{base}-{serial:02}-{suffix}'
 
 
 def build_simulation(capture, additional=False):

@@ -8,6 +8,7 @@ from uuid import uuid4
 from typing import Literal
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from .cli_auth import access_token, check_profile
+from .simulation import normalize_simulated_job_names
 
 
 class TaskMapping(BaseModel):
@@ -136,7 +137,7 @@ class ReplayRepository:
                 row = self.db.execute('SELECT id FROM active_capture WHERE slot=1').fetchone()
                 ident = row[0] if row else None
             row = self.db.execute('SELECT payload FROM captures WHERE id=?', (ident,)).fetchone()
-            return json.loads(row[0]) if row else None
+            return normalize_simulated_job_names(json.loads(row[0])) if row else None
 
     def activate_capture(self, ident):
         with self.lock, self.db:

@@ -1,4 +1,6 @@
 from copy import deepcopy
+import json
+import re
 import pytest
 from fastapi.testclient import TestClient
 
@@ -65,7 +67,7 @@ def test_overlay_preserves_real_identities_history_and_links_without_inventing_t
     known = {o['id'] for o in source['checkpoint']['objects']}
     for a in simulated:
         assert a['workspace_id'] == 'real-workspace' and a['account_id'] == 'real-account'
-        assert a['name'].startswith('Sigma Demo 2-sim-')
+        assert re.fullmatch(r'Sigma Demo 2-\d+-(?:API-landing|tables-deploy|export)', a['name'])
         assert a['native_url'] is None
         assert a['estimate']['sample_count'] == 0
         assert a['route']['evidence'] == 'configured' and a['route']['provenance'] == PROVENANCE
@@ -151,7 +153,7 @@ def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_
     known = {o['id'] for o in source['checkpoint']['objects']}
     for a in added:
         assert a['provenance'] == PROVENANCE and a['native_url'] is None
-        assert a['name'].startswith('Sigma Demo 2-sim-')
+        assert re.fullmatch(r'Sigma Demo 2-\d+-(?:API-landing|tables-deploy|export)', a['name'])
         assert START < a['started_at'] < a['ended_at'] <= END
         assert set(a['route']['source_ids'] + a['route']['target_ids']) <= known
         Attempt.model_validate(a)
@@ -171,3 +173,29 @@ def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_
         assert client.get('/api/replay', params={'capture': first['checkpoint']['capture_id']}).json() == first
         assert client.get('/api/replay', params={'capture': 'real-capture'}).json() == source
         assert client.get('/api/configuration').json()['last_capture']['simulation']['added_runs'] == 164
+
+
+def test_saved_legacy_names_are_cleaned_across_replay_and_run_details_without_rewriting_history(tmp_path):
+    source = real_capture()
+    for a in [*source['checkpoint']['attempts'], *(e['payload'] for e in source['events'])]:
+        a['name'] = 'Sigma-sim-01-tables-deploy'  # A real name must be preserved verbatim.
+    expected = build_simulation(source)
+    legacy = deepcopy(expected)
+    for e in legacy['events']:
+        a = e['payload']
+        if e['type'] == 'attempt.upsert' and a.get('provenance') == PROVENANCE:
+            a['name'] = re.sub(r'-(\d+-(?:API-landing|tables-deploy|export))$', r'-sim-\1', a['name'])
+    with TestClient(create_app(str(tmp_path / 'demo.sqlite')), base_url='http://localhost', client=('127.0.0.1', 1)) as client:
+        repo = client.app.state.repository
+        repo.save_capture(source)
+        repo.save_capture(legacy)
+        assert client.get('/api/replay').json() == expected
+        assert client.get('/api/replay', params={'start': START + 180_000}).json()['checkpoint']['attempts'] == scene_at(expected, START + 180_000)['attempts']
+        final = client.get('/api/scene', params={'at': END}).json()
+        assert final == scene_at(expected, END)
+        a = next(a for a in final['attempts'] if a['provenance'] == PROVENANCE)
+        assert client.get(f'/api/attempts/{a["id"]}', params={'at': END}).json() == a
+        assert client.post('/api/replay/simulate').json() == expected
+        assert client.get('/api/replay', params={'capture': 'real-capture'}).json() == source
+        stored = repo.db.execute('SELECT payload FROM captures WHERE id=?', (legacy['checkpoint']['capture_id'],)).fetchone()[0]
+        assert json.loads(stored) == legacy
