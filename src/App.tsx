@@ -42,6 +42,14 @@ import Configuration from "./Configuration";
 import { isExport, selectedDestination } from "./vessels";
 
 const LakeScene = lazy(() => import("./LakeScene"));
+const SPEED_SHORTCUTS = new Map([
+  ["1", 60],
+  ["2", 300],
+  ["3", 1000],
+  ["4", 3600],
+]);
+const SPEED_SHORTCUT_HINT =
+  "Speed keys: 1 = 60×, 2 = 300×, 3 = 1000×, 4 = 3600×";
 
 export default function App() {
   const initialParams = useMemo(
@@ -153,6 +161,31 @@ export default function App() {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [replay, playing, speed]);
+
+  useEffect(() => {
+    if (!replay || configuration) return;
+    const changeSpeed = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        (event.target instanceof Element &&
+          event.target.closest(
+            'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]',
+          ))
+      )
+        return;
+      const nextSpeed = SPEED_SHORTCUTS.get(event.key);
+      if (nextSpeed === undefined) return;
+      event.preventDefault();
+      setSpeed(nextSpeed);
+    };
+    window.addEventListener("keydown", changeSpeed);
+    return () => window.removeEventListener("keydown", changeSpeed);
+  }, [replay, configuration]);
 
   const scene = useMemo(
     () => (replay ? reconstruct(replay, at) : null),
@@ -646,6 +679,7 @@ export default function App() {
                         </button>
                       )}
                       <button
+                        title={SPEED_SHORTCUT_HINT}
                         aria-label={
                           controls
                             ? "Hide replay controls"
@@ -914,6 +948,7 @@ export default function App() {
                               <p>
                                 1 minute of history plays in 1 second at 60×.
                               </p>
+                              <p>{SPEED_SHORTCUT_HINT}.</p>
                             </div>
                           )}
                         </div>
@@ -957,6 +992,8 @@ export default function App() {
                         <label className="speed-control">
                           <select
                             aria-label="Playback speed"
+                            aria-keyshortcuts="1 2 3 4"
+                            title={SPEED_SHORTCUT_HINT}
                             value={speed}
                             onChange={(e) => setSpeed(Number(e.target.value))}
                           >

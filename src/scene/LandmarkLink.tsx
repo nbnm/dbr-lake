@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Vector3, type Camera, type Object3D } from "three";
 import type { Point } from "../layout";
-import { positionPlaques, type PlaqueBox } from "../plaqueLayout";
+import { lakeTitleBox, positionPlaques, type PlaqueBox } from "../plaqueLayout";
 import { Label } from "./SceneLabel";
 
 export const LandmarkPlaques = createContext(
@@ -71,14 +71,7 @@ export function LandmarkLink({
           height: value.height,
         };
       });
-      boxes.push({
-        key: "T1A",
-        x: size.width / 2,
-        y: size.height - 104,
-        width: 188,
-        height: 84,
-        pinned: true,
-      });
+      boxes.push(lakeTitleBox(size.width, size.height));
       return positionPlaques(boxes, size.width, size.height).get(name)!;
     },
     [plaques, name],

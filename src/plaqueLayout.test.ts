@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { positionPlaques, type PlaqueBox } from "./plaqueLayout";
+import { lakeTitleBox, positionPlaques, type PlaqueBox } from "./plaqueLayout";
 
 describe("linked brand plaques", () => {
   it("keeps all six names readable at desktop and portrait crossings, leaving T1A at the bottom", () => {
@@ -22,19 +22,12 @@ describe("linked brand plaques", () => {
           width: i === 2 ? 100 : 80,
           height: 36,
         }));
-        items.push({
-          key: "T1A",
-          x: width / 2,
-          y: height - 80,
-          width: 98,
-          height: 48,
-          pinned: true,
-        });
+        items.push(lakeTitleBox(width, height));
         const positions = positionPlaques(items, width, height);
         expect(positionPlaques([...items].reverse(), width, height)).toEqual(
           positions,
         );
-        expect(positions.get("T1A")).toEqual([width / 2, height - 80]);
+        expect(positions.get("T1A")).toEqual([width / 2, height - 104]);
         items.forEach((item, i) => {
           const [x, y] = positions.get(item.key)!;
           expect(x - item.width / 2).toBeGreaterThanOrEqual(8);

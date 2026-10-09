@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import { Group, SRGBColorSpace, TextureLoader, type Texture } from "three";
 import type { LakeLayout } from "../layout";
 import { zeppelinDimensions, zeppelinPose } from "../landmarks";
 import { Label } from "./SceneLabel";
 import { LandmarkLink } from "./LandmarkLink";
+import { lakeTitleBox } from "../plaqueLayout";
 
 const ALCHEMIST_URL = "https://getalchemist.io/";
 const T1A_URL = "https://t1a.com/";
@@ -176,26 +177,29 @@ export function AlchemistZeppelin({
   );
 }
 
-export function T1ABottomLogo() {
+export function T1ALakeTitle() {
+  const size = useThree((state) => state.size);
+  const box = lakeTitleBox(size.width, size.height);
   return (
     <Label
       persistent
       center
       zIndexRange={[18, 0]}
-      calculatePosition={(_object, _camera, size) => [
-        size.width / 2,
-        size.height - 104,
-      ]}
+      calculatePosition={(_object, _camera, size) => {
+        const box = lakeTitleBox(size.width, size.height);
+        return [box.x, box.y];
+      }}
     >
       <a
-        className="t1a-bottom-logo"
+        className="t1a-lake-title"
+        style={{ width: box.width, height: box.height }}
         href={T1A_URL}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Visit T1A"
+        title="Visit T1A (opens in a new tab)"
         onClick={(event) => event.stopPropagation()}
       >
-        <img src="/brands/t1a.svg" alt="T1A" />
+        <h1>24 Hours of Databricks Activity at T1A</h1>
       </a>
     </Label>
   );

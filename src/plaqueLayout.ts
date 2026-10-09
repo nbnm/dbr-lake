@@ -7,6 +7,17 @@ export interface PlaqueBox {
   pinned?: boolean;
 }
 
+export function lakeTitleBox(width: number, height: number): PlaqueBox {
+  return {
+    key: "T1A",
+    x: width / 2,
+    y: height - 104,
+    width: Math.min(680, width - 32),
+    height: 84,
+    pinned: true,
+  };
+}
+
 // Keep linked plaques readable when separate world objects project to the
 // same place. Only labels move; the models retain their lake/sky positions.
 export function positionPlaques(
