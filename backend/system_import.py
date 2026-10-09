@@ -204,7 +204,7 @@ def build_system_capture(settings, token, end, reader_factory=SystemTablesReader
             except ImportFailure as error:
                 warnings.append(f'{description}: {error}')
                 return []
-        ws_rows = optional('SELECT /* lake:workspaces */ account_id, workspace_id, workspace_name, workspace_url, region, cloud FROM system.access.workspaces_latest', 'Workspace directory unavailable')
+        ws_rows = optional('SELECT /* lake:workspaces */ account_id, workspace_id, workspace_name, workspace_url FROM system.access.workspaces_latest', 'Workspace directory unavailable')
         meta_rows = optional('SELECT /* lake:metastores */ metastore_id FROM system.information_schema.metastores', 'Metastore inventory unavailable')
         catalogs = optional("SELECT /* lake:catalogs */ catalog_name FROM system.information_schema.catalogs WHERE catalog_name <> 'system'", 'Catalog inventory unavailable')
         schemas = optional("SELECT /* lake:schemas */ catalog_name, schema_name FROM system.information_schema.schemata WHERE catalog_name <> 'system' AND schema_name <> 'information_schema'", 'Schema inventory unavailable')

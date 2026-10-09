@@ -6,7 +6,8 @@ from threading import RLock
 from urllib.parse import urlsplit
 from uuid import uuid4
 from typing import Literal
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
+from .cli_auth import access_token, check_profile
 
 
 class TaskMapping(BaseModel):
@@ -29,6 +30,8 @@ class ConnectionInput(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     host: str
     token: SecretStr | None = None
+    auth_method: Literal['token', 'databricks_cli'] = 'token'
+    cli_profile: str | None = Field(default=None, pattern=r'^[A-Za-z0-9][A-Za-z0-9_. -]{0,127}$')
     region: str = Field(default="unspecified", max_length=100)
     routes: list[TaskMapping] = Field(default_factory=list, max_length=200)
     import_source: Literal['system_tables', 'jobs_api'] = 'system_tables'
@@ -52,6 +55,12 @@ class ConnectionInput(BaseModel):
             raise ValueError("Token must be nonempty and contain no whitespace.")
         return token
 
+    @model_validator(mode='after')
+    def authentication(self):
+        if self.auth_method == 'databricks_cli' and (not self.cli_profile or self.token):
+            raise ValueError('CLI authentication requires a named profile and no pasted token.')
+        return self
+
 
 class ReplayRepository:
     def __init__(self, path):
@@ -67,28 +76,48 @@ class ReplayRepository:
 
     def list(self):
         with self.lock:
-            return [{**json.loads(row[0]), 'token_configured': json.loads(row[0])['id'] in self.tokens}
+            return [self.public_settings(json.loads(row[0]))
                     for row in self.db.execute('SELECT settings FROM connections ORDER BY rowid')]
+
+    def public_settings(self, settings):
+        token_ready, error = settings['id'] in self.tokens, None
+        ready = token_ready
+        if settings.get('auth_method') == 'databricks_cli':
+            try:
+                check_profile(settings)
+                ready = True
+            except ValueError as e:
+                ready, error = False, str(e)
+        return {**settings, 'token_configured': token_ready, 'credential_configured': ready,
+                'authentication_error': error}
 
     def save(self, connection: ConnectionInput):
         ident = connection.id or uuid4().hex
         settings = {**connection.model_dump(exclude={'token'}), 'id': ident}
         with self.lock, self.db:
             old = self.db.execute('SELECT settings FROM connections WHERE id=?', (ident,)).fetchone()
-            if old and json.loads(old[0])['host'] != connection.host:
-                self.tokens.pop(ident, None)  # Never reuse a token at a changed destination.
+            if (connection.auth_method == 'databricks_cli' or
+                    old and (json.loads(old[0])['host'] != connection.host or
+                             json.loads(old[0]).get('auth_method', 'token') != connection.auth_method)):
+                self.tokens.pop(ident, None)  # Never reuse a token at a changed destination or method.
             if connection.token:
                 self.tokens[ident] = connection.token.get_secret_value()
             self.db.execute('INSERT OR REPLACE INTO connections VALUES (?,?)', (ident, json.dumps(settings)))
-        return {**settings, 'token_configured': ident in self.tokens}
+        return self.public_settings(settings)
 
     def credential(self, ident):
         with self.lock:
             row = self.db.execute('SELECT settings FROM connections WHERE id=?', (ident,)).fetchone()
             token = self.tokens.get(ident)
-            if not row or not token:
-                raise ValueError('Save a connection with a token first. Tokens must be re-entered after server restart.')
-            return json.loads(row[0]), token
+            if not row:
+                raise ValueError('Save an integration workspace first.')
+            settings = json.loads(row[0])
+        if settings.get('auth_method') == 'databricks_cli':
+            # Resolve afresh before every test/import; the CLI refreshes its OAuth cache.
+            return settings, access_token(settings)
+        if not token:
+            raise ValueError('Save a connection with a token first. Tokens must be re-entered after server restart.')
+        return settings, token
 
     def delete(self, ident):
         with self.lock, self.db:

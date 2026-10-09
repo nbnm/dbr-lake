@@ -37,11 +37,18 @@ export default function Configuration({
     [host, setHost] = useState(""),
     [region, setRegion] = useState("");
   const [token, setToken] = useState("");
+  const [authMethod, setAuthMethod] = useState<"token" | "databricks_cli">(
+    "databricks_cli",
+  );
+  const [profile, setProfile] = useState("");
   const [warehouse, setWarehouse] = useState("");
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null),
     [message, setMessage] = useState<string | null>(null);
   const [lastCapture, setLastCapture] = useState<number | null>(null);
+  const savedConnection = connections.find((c) => c.id === selected);
+  const credentialReady =
+    savedConnection?.credential_configured ?? savedConnection?.token_configured;
   useEffect(() => {
     dialog.current?.showModal();
     return () => dialog.current?.close();
@@ -72,6 +79,8 @@ export default function Configuration({
     setHost(c?.host ?? "");
     setRegion(c?.region ?? "");
     setToken("");
+    setAuthMethod(c ? (c.auth_method ?? "token") : "databricks_cli");
+    setProfile(c?.cli_profile ?? "");
     setWarehouse(c?.warehouse_id ?? "");
     setError(null);
     setMessage(null);
@@ -140,10 +149,19 @@ export default function Configuration({
                 </button>
                 <span
                   className={
-                    c.token_configured ? "token-ready" : "token-missing"
+                    (c.credential_configured ?? c.token_configured)
+                      ? "token-ready"
+                      : "token-missing"
                   }
+                  title={c.authentication_error ?? undefined}
                 >
-                  {c.token_configured ? "Token ready" : "Token needed"}
+                  {c.auth_method === "databricks_cli"
+                    ? c.credential_configured
+                      ? "CLI profile"
+                      : "Check CLI profile"
+                    : c.token_configured
+                      ? "Token ready"
+                      : "Token needed"}
                 </span>
                 <button
                   disabled={!!busy}
@@ -183,7 +201,10 @@ export default function Configuration({
                 region: region.trim() || "unspecified",
                 import_source: "system_tables",
                 warehouse_id: warehouse.trim() || null,
-                ...(token ? { token } : {}),
+                auth_method: authMethod,
+                cli_profile:
+                  authMethod === "databricks_cli" ? profile.trim() : null,
+                ...(authMethod === "token" && token ? { token } : {}),
               };
               const c = await api<ConnectionSettings>("/api/configuration", {
                 method: "POST",
@@ -245,26 +266,72 @@ export default function Configuration({
             />
           </label>
           <label>
-            Access token
-            <input
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder={
-                connections.find((c) => c.id === selected)?.token_configured
-                  ? "Leave blank to keep the current token"
-                  : "Paste your Databricks token"
-              }
-              autoComplete="new-password"
-              spellCheck={false}
+            Authentication
+            <select
+              aria-label="Authentication"
+              value={authMethod}
+              onChange={(e) => {
+                setAuthMethod(e.target.value as "token" | "databricks_cli");
+                setToken("");
+              }}
               disabled={!!busy}
-            />
+            >
+              <option value="databricks_cli">Databricks CLI · OAuth</option>
+              <option value="token">Access token</option>
+            </select>
           </label>
-          <p className="config-secret-note">
-            Tokens stay in server memory until restart. They are never returned
-            to the browser or saved to disk. Connection details and imported
-            metadata are saved locally.
-          </p>
+          {authMethod === "databricks_cli" ? (
+            <>
+              <label>
+                CLI profile name
+                <input
+                  required
+                  maxLength={128}
+                  value={profile}
+                  onChange={(e) => setProfile(e.target.value)}
+                  placeholder="lake-replay"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={!!busy}
+                />
+              </label>
+              <p className="config-secret-note">
+                Uses an existing OAuth profile on the machine running this app.
+                Sign in with databricks auth login first. The profile must match
+                the workspace URL. The CLI refreshes access; tokens never enter
+                the browser.
+              </p>
+            </>
+          ) : (
+            <>
+              <label>
+                Access token
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder={
+                    savedConnection?.token_configured
+                      ? "Leave blank to keep the current token"
+                      : "Paste your Databricks token"
+                  }
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  disabled={!!busy}
+                />
+              </label>
+              <p className="config-secret-note">
+                Pasted tokens stay in server memory until restart. They are
+                never returned to the browser or saved to disk. Connection
+                details and imported metadata are saved locally.
+              </p>
+            </>
+          )}
+          {savedConnection?.authentication_error && (
+            <p className="config-feedback error" role="alert">
+              {savedConnection.authentication_error}
+            </p>
+          )}
           <label>
             <span className="config-field-label">
               SQL warehouse ID <small>optional</small>
@@ -293,10 +360,8 @@ export default function Configuration({
                 type="button"
                 disabled={
                   !!busy ||
-                  !connections.find((c) => c.id === selected)
-                    ?.token_configured ||
-                  connections.find((c) => c.id === selected)?.import_source !==
-                    "system_tables"
+                  !credentialReady ||
+                  savedConnection?.import_source !== "system_tables"
                 }
                 onClick={() =>
                   action("Testing connection", async () => {
@@ -341,9 +406,8 @@ export default function Configuration({
             className="primary-button"
             disabled={
               !!busy ||
-              !connections.find((c) => c.id === selected)?.token_configured ||
-              connections.find((c) => c.id === selected)?.import_source !==
-                "system_tables"
+              !credentialReady ||
+              savedConnection?.import_source !== "system_tables"
             }
             onClick={() =>
               action("Importing system tables and lineage…", async () => {

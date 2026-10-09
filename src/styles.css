@@ -2571,6 +2571,7 @@ button.external-source > svg:last-child {
   gap: 16px;
 }
 .connection-form input,
+.connection-form select,
 .connection-form textarea {
   border: 1px solid #d8dfd2;
   background: #fff;

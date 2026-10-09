@@ -131,6 +131,10 @@ export interface ConnectionSettings {
   host: string;
   region: string;
   token_configured: boolean;
+  auth_method?: "token" | "databricks_cli";
+  cli_profile?: string | null;
+  credential_configured?: boolean;
+  authentication_error?: string | null;
   routes: TaskMapping[];
   import_source?: "system_tables" | "jobs_api";
   warehouse_id?: string | null;

@@ -171,6 +171,23 @@ def test_single_connection_joins_parent_lineage_keeps_workspace_ids_and_native_l
     assert 'secret=hidden' not in json.dumps(capture)
 
 
+def test_workspace_directory_resolves_native_links_with_actual_directory_schema():
+    data = data_fixture()
+    columns = {'account_id', 'workspace_id', 'workspace_name', 'workspace_url', 'create_time', 'status'}
+    data['workspaces'] = [{k: v for k, v in row.items() if k in columns} for row in data['workspaces']]
+    class Reader(fixture_reader(data)):
+        def query(self, statement, parameters=None):
+            if 'lake:workspaces' in statement:
+                selected = re.search(r'\*/\s*(.*?)\s+FROM', statement).group(1).split(',')
+                if any(column.strip() not in columns for column in selected):
+                    raise ImportFailure('Unresolved workspace directory column.')
+            return super().query(statement, parameters)
+    capture = build_system_capture(SETTINGS, SECRET, END, Reader)
+    attempts = scene_at(capture, END)['attempts']
+    assert next(a for a in attempts if a['workspace_id'] == '2')['native_url'] == 'https://west.cloud.databricks.com/jobs/10/runs/100?o=2'
+    assert not any('Workspace directory unavailable' in warning for warning in capture['checkpoint']['warnings'])
+
+
 def test_hourly_slices_and_repair_segments_keep_real_start_times_and_staleness():
     data = data_fixture()
     data['runs'] = [row('long', START-3_600_000, START), row('long', START, START+3_600_000, 'SUCCEEDED'),

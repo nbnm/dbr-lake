@@ -158,6 +158,7 @@ export function buildLakeLayout(
   );
   let halfDepth = Math.max(
     8.5,
+    halfWidth * 0.48,
     5.5 + Math.sqrt(entries.length) * 2,
     Math.ceil(
       navigation.lanes.buoy / Math.ceil(Math.sqrt(navigation.lanes.buoy)),

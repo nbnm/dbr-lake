@@ -10,7 +10,7 @@ _Recorded from the running app with explicitly simulated metadata and 60× playb
 
 ## What the lake shows
 
-- **Catalog docks → schema piers → table berths.** Inventory determines lake size; positions stay stable during filtering and seeking. Empty catalogs and schemas retain their place.
+- **Catalog docks → schema piers → table berths.** Inventory determines lake size; its depth grows with shore length to keep large inventories from becoming a narrow strip. Positions stay stable during filtering and seeking. Empty catalogs and schemas retain their place.
 - **One plane per landing destination.** A job writing to several tables can have several planes. Each opens the same job-run status and its destination details without inflating execution counts.
 - **Paper ships and processing buoys.** A single observed table source can drive a transformation route. Missing or ambiguous lineage remains visibly unresolved.
 - **Fixed 24-hour replay.** Minute-level seeking, event navigation, playback speeds, workspace filters, an accessible activity list, and contextual inspection use a saved capture. No live collection runs in the background.
@@ -36,7 +36,7 @@ Open [the lake](http://127.0.0.1:8001/). For frontend development, run `npm run 
 ## Configure one integration workspace
 
 1. Open the settings button in the header, **Configure replay**.
-2. Enter the workspace name, HTTPS workspace URL, and access token. The region label is optional.
+2. Enter the workspace name and HTTPS workspace URL. Choose **Databricks CLI · OAuth** and enter an existing CLI profile name, or choose **Access token** to paste a token. The region label is optional.
 3. Enter a SQL warehouse ID, or leave it blank to use an accessible running warehouse. An explicitly selected stopped warehouse may start when Databricks executes the metadata queries.
 4. Save the connection. **Test saved connection** checks access to job, task, and lineage system tables.
 5. Select the integration workspace and click **Import last 24 hours**. No manual route mappings or separate tokens for each observed workspace are required.
@@ -46,7 +46,15 @@ The token needs warehouse usage and appropriate `USE`/`SELECT` grants on the rel
 
 **One connection covers regional job history, not every cloud region.** Databricks job system tables contain account workspaces in the integration workspace's region. Records typically arrive within about an hour of a timeline slice ending; new workspaces may take longer. [Databricks job-history coverage and availability](https://docs.databricks.com/aws/en/admin/system-tables/jobs).
 
-Tokens stay in server memory until restart. They are omitted from API responses, browser storage, validation errors, and the settings database. Connection details and imported metadata persist locally in `.data/`; re-enter the token after a restart. Changing a workspace URL clears its old token. The API accepts only local-machine, same-origin requests. This is a local single-user tool.
+For CLI authentication, sign in on the machine running the backend:
+
+```sh
+databricks auth login --host https://YOUR-WORKSPACE.azuredatabricks.net --profile lake-replay
+```
+
+Enter `lake-replay` in **CLI profile name**. The backend checks that the profile matches the workspace URL and asks the CLI for a current OAuth token before each test or import. The CLI owns token storage and refresh; the app saves only the profile name. See [Databricks CLI OAuth authentication](https://learn.microsoft.com/en-us/azure/databricks/dev-tools/auth/oauth-u2m).
+
+Pasted tokens stay in server memory until restart. Authentication tokens are omitted from API responses, browser storage, validation errors, and the settings database. Connection details and imported metadata persist locally in `.data/`; pasted tokens must be re-entered after restart, while CLI profiles can be reused. Changing a workspace URL or authentication method clears its old pasted token. The API accepts only local-machine, same-origin requests. This is a local single-user tool.
 
 ## How the capture is reconstructed
 
@@ -74,6 +82,7 @@ Imports submit application-owned metadata `SELECT` queries to a SQL warehouse. P
 | Area                                             | Location                                                    |
 | ------------------------------------------------ | ----------------------------------------------------------- |
 | Memory-only credentials and persistent captures  | `backend/connections.py`                                    |
+| CLI OAuth profile validation and token refresh   | `backend/cli_auth.py`                                       |
 | Regional system-table and lineage import         | `backend/system_import.py`                                  |
 | Capture assembly and legacy import compatibility | `backend/replay_import.py`                                  |
 | Local-only configuration and replay endpoints    | `backend/app.py`                                            |
@@ -91,6 +100,6 @@ npm test
 npm run build
 ```
 
-Tests cover SQL submission and pagination, truncation and failure recovery, single-connection imports, cross-workspace run links, lineage association, long runs, repairs, stale observations, secret handling, persisted captures, replay reconstruction, recorded-duration motion, navigation clearance, hierarchy, and continuous mascot swimming. Browser checks cover the hidden default menus and captions, minute-level timeline, 60× playback, configuration, inspection, linked landmarks, and responsive layout. Real Databricks access requires credentials and has not been exercised in this development session.
+Tests cover SQL submission and pagination, truncation and failure recovery, single-connection imports, cross-workspace run links, lineage association, long runs, repairs, stale observations, secret handling, CLI profile matching and refresh, persisted captures, replay reconstruction, recorded-duration motion, navigation clearance, hierarchy, and continuous mascot swimming. Browser checks cover the hidden default menus and captions, minute-level timeline, 60× playback, configuration, inspection, linked landmarks, and responsive layout. A real Azure Databricks import has verified CLI OAuth, warehouse usage, job/task history, lineage, inventory, workspace directory, and native run links. Private captures remain local and are excluded from Git; the README animation uses simulated metadata.
 
 See [implementation status](docs/implementation.md) for remaining limitations.

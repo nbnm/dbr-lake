@@ -104,6 +104,17 @@ describe("inventory-driven harbor", () => {
       cameraFit(small, 1100, 450),
     );
   });
+  it("keeps a workspace-sized inventory readable in the overview without dropping tables or docks", () => {
+    const tables = inventory(216, 31);
+    const lake = buildLakeLayout(tables);
+    expect(lake.objects).toHaveLength(tables.length);
+    expect(lake.piers).toHaveLength(216);
+    expect(lake.docks).toHaveLength(108);
+    expect(lake.water.halfWidth / lake.water.halfDepth).toBeLessThan(2.5);
+    for (const dock of lake.docks) {
+      expect(Math.abs(dock.center[2])).toBeCloseTo(lake.water.halfDepth - 0.55);
+    }
+  });
   it("packs docks without overlap and keeps every berth inside the lake", () => {
     for (const n of [1, 2, 6, 7, 30, 100]) {
       const layout = buildLakeLayout(inventory(n, 8));
