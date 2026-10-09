@@ -18,6 +18,7 @@ export const CAMERA_OFFSET: Point = [16, 26, 44];
 export const PORTRAIT_CAMERA_OFFSET: Point = [48, 35, 6];
 export const MIN_PIER_DEPTH = 7.2;
 export const SHIP_BERTH_SPACING = 2.4;
+const LAKE_SIZE_FACTOR = 0.9;
 const PIER_GAP = 5.4;
 export type Shore = "north" | "south" | "west" | "east";
 export function harborPoint(
@@ -371,6 +372,8 @@ export function buildLakeLayout(
   const airportRows = Math.ceil(sources.size / 2);
   halfDepth = Math.max(halfDepth, (airportRows - 1) * 4 + 4.5);
   halfWidth = Math.max(halfWidth, halfDepth * 0.7);
+  halfWidth *= LAKE_SIZE_FACTOR;
+  halfDepth *= LAKE_SIZE_FACTOR;
   // Reserve the broad corners before packing docks, and keep enough open
   // water for the complete set of vessel lanes and processing moorings.
   for (let pass = 0; pass < 24; pass++) {
