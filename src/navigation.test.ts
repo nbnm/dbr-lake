@@ -529,7 +529,19 @@ describe("replay navigation", () => {
         ).toBe(true);
       }
     }
-    expect(layout.bounds.max[1]).toBeLessThan(10);
+    for (const flight of flights) {
+      const path = makePath(
+        flight,
+        layout.objects,
+        layout.airports,
+        layout.piers,
+        flight.route.target_ids[0],
+        layout,
+      );
+      expect(
+        Math.max(...path.curve.getSpacedPoints(100).map((p) => p.y)),
+      ).toBeLessThan(10);
+    }
   });
   it("yields at crossings without moving frozen vessels or depending on frame history or input order", () => {
     const water = { halfWidth: 15, halfDepth: 15 };

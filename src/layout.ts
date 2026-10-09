@@ -7,6 +7,7 @@ import {
   PORT_ROW_SPACING,
   type NavigationLayout,
 } from "./navigation";
+import { t1aBackdropBounds, zeppelinBounds } from "./landmarks";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -322,7 +323,8 @@ export function buildLakeLayout(
   const max: Point = [
     ground.halfWidth,
     Math.max(
-      5.1,
+      zeppelinBounds({ halfWidth, halfDepth }).max[1],
+      t1aBackdropBounds({ halfWidth, halfDepth }).max[1],
       cruiseHeight(Math.min(AIR_LEVELS - 1, navigation.lanes.plane - 1)) + 0.4,
     ),
     ground.halfDepth,
@@ -369,7 +371,12 @@ export function cameraFit(
       min: [-layout.water.halfWidth, 0, -layout.water.halfDepth],
       max: [
         layout.water.halfWidth,
-        layout.bounds.max[1],
+        Math.max(
+          5.1,
+          cruiseHeight(
+            Math.min(AIR_LEVELS - 1, layout.navigation.lanes.plane - 1),
+          ) + 0.4,
+        ),
         layout.water.halfDepth,
       ],
     },
@@ -389,6 +396,8 @@ export function cameraFit(
       min: [antaresPoint(layout)[0] - 1.5, -0.1, antaresPoint(layout)[2] - 1.2],
       max: [antaresPoint(layout)[0] + 1.5, 8.2, antaresPoint(layout)[2] + 1.2],
     },
+    zeppelinBounds(layout.water),
+    t1aBackdropBounds(layout.water),
     ...layout.airports.map((a) => ({
       min: [
         a.center[0] - 2.3 - (a.side === -1 ? a.apronExtra : 0),
@@ -407,9 +416,19 @@ export function cameraFit(
       for (const y of [box.min[1], box.max[1]])
         for (const z of [box.min[2], box.max[2]])
           projected.push([x * r[0] + z * r[2], x * u[0] + y * u[1] + z * u[2]]);
+  // Match CameraRig's target, including asymmetric landmarks above the shore.
+  // Fitting the distance from this target keeps both edges within the viewport.
+  const target = [
+    (layout.bounds.min[0] + layout.bounds.max[0]) / 2,
+    2,
+    (layout.bounds.min[2] + layout.bounds.max[2]) / 2,
+  ];
+  const center = [
+    target[0] * r[0] + target[2] * r[2],
+    target[0] * u[0] + target[1] * u[1] + target[2] * u[2],
+  ];
   const span = (axis: number) =>
-    Math.max(...projected.map((p) => p[axis])) -
-    Math.min(...projected.map((p) => p[axis]));
+    2 * Math.max(...projected.map((p) => Math.abs(p[axis] - center[axis])));
   return Math.max(
     0.25,
     Math.min(

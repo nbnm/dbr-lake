@@ -2990,8 +2990,9 @@ button.external-source > svg:last-child {
   }
 }
 
-/* The logo is printed on the sails; reveal a text link only for keyboard focus. */
-.sailboat-accessible-link {
+/* Physical logo prints stay visible; reveal the text links for keyboard focus. */
+.sailboat-accessible-link,
+.brand-accessible-link {
   display: block;
   width: 1px;
   height: 1px;
@@ -2999,7 +3000,8 @@ button.external-source > svg:last-child {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.sailboat-accessible-link:focus-visible {
+.sailboat-accessible-link:focus-visible,
+.brand-accessible-link:focus-visible {
   width: auto;
   height: auto;
   clip-path: none;
@@ -3008,4 +3010,44 @@ button.external-source > svg:last-child {
   background: #fcfcf4;
   border-radius: 5px;
   font-size: 11px;
+}
+
+.airship-site-link img {
+  display: none;
+}
+
+/* A side hull print becomes edge-on in portrait; keep the actual logo legible. */
+@media (max-width: 600px) {
+  .airship-site-link {
+    width: auto;
+    height: auto;
+    clip-path: none;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 7px;
+    border-radius: 4px;
+    background: #355c4d;
+    transform: translateY(-12px);
+  }
+  .airship-site-link img {
+    display: block;
+  }
+  .airship-site-link .airship-mark {
+    width: 14px;
+    height: auto;
+  }
+  .airship-site-link .airship-wordmark {
+    width: 82px;
+    height: auto;
+  }
+  .airship-site-link span {
+    display: none;
+  }
+  .airship-site-link:focus-visible {
+    background: #355c4d;
+    outline: 2px solid #d4b474;
+    outline-offset: 3px;
+  }
 }

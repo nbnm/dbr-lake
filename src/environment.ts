@@ -4,6 +4,7 @@ import {
   type LakeLayout,
   type Point,
 } from "./layout";
+import { t1aBackdrop } from "./landmarks";
 
 export interface FieldPatch {
   center: Point;
@@ -52,7 +53,11 @@ export function buildSurroundings(layout: LakeLayout) {
     })),
   );
   const trees: ForestTree[] = [];
-  const landmarks = [lighthousePoint(layout), antaresPoint(layout)];
+  const landmarks = [
+    lighthousePoint(layout),
+    antaresPoint(layout),
+    t1aBackdrop(layout.water).point,
+  ];
   const nearRoad = (x: number, z: number) =>
     roads.some(({ from, to }) => {
       const dx = to[0] - from[0],
