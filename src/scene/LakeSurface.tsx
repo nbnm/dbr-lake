@@ -1,4 +1,4 @@
-import { useMemo, useRef, type RefObject } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, Mesh, ShaderMaterial } from "three";
 import { inHarbor, type LakeLayout, type Point } from "../layout";
@@ -13,6 +13,8 @@ import { inSwimmingArea } from "../wildlife";
 import { inSailingArea } from "../landmarks";
 
 const WAVE_SPEED = 0.5;
+// Preserve the default one-minute-per-second pace independently of replay controls.
+const AMBIENT_TIME_SCALE = 60;
 
 const vertexShader = `varying vec2 vWater;
 void main() { vWater = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
@@ -29,20 +31,19 @@ void main() {
 function WaterRing({
   point,
   index,
-  clock,
   reduced,
 }: {
   point: Point;
   index: number;
-  clock: RefObject<number>;
   reduced: boolean;
 }) {
   const ring = useRef<Mesh>(null);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (!ring.current) return;
     const t = reduced
       ? index * 0.7
-      : (clock.current * WAVE_SPEED) / 6500 + index * 0.7;
+      : (clock.elapsedTime * AMBIENT_TIME_SCALE * WAVE_SPEED) / 6.5 +
+        index * 0.7;
     ring.current.scale.setScalar(0.7 + 0.13 * Math.sin(t));
     ring.current.position.x =
       point[0] + (reduced ? 0 : Math.sin(t * 0.3) * 0.1);
@@ -96,19 +97,21 @@ function Reeds({ point, seed }: { point: Point; seed: number }) {
 function LilyPads({
   point,
   index,
-  clock,
   reduced,
 }: {
   point: Point;
   index: number;
-  clock: RefObject<number>;
   reduced: boolean;
 }) {
   const group = useRef<Group>(null);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (group.current)
       group.current.rotation.y =
-        index + (reduced ? 0 : Math.sin(clock.current / 13000 + index) * 0.1);
+        index +
+        (reduced
+          ? 0
+          : Math.sin((clock.elapsedTime * AMBIENT_TIME_SCALE) / 13 + index) *
+            0.1);
   });
   return (
     <group ref={group} position={point} rotation={[0, index, 0]}>
@@ -137,11 +140,9 @@ function LilyPads({
 
 export function LakeSurface({
   layout,
-  clock,
   reduced,
 }: {
   layout: LakeLayout;
-  clock: RefObject<number>;
   reduced: boolean;
 }) {
   const { halfWidth: w, halfDepth: d } = layout.water;
@@ -161,11 +162,11 @@ export function LakeSurface({
   }, [layout, water]);
   const material = useRef<ShaderMaterial>(null);
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
-  useFrame(() => {
+  useFrame(({ clock }) => {
     if (material.current)
       material.current.uniforms.uTime.value = reduced
         ? 0
-        : ((clock.current * WAVE_SPEED) % 3_600_000) / 1000;
+        : clock.elapsedTime * AMBIENT_TIME_SCALE * WAVE_SPEED;
   });
   const rings = useMemo(
     () =>
@@ -248,13 +249,7 @@ export function LakeSurface({
         />
       </mesh>
       {rings.map((p, i) => (
-        <WaterRing
-          key={i}
-          point={p}
-          index={i}
-          clock={clock}
-          reduced={reduced}
-        />
+        <WaterRing key={i} point={p} index={i} reduced={reduced} />
       ))}
       {patches.map(({ point: p, normal: n }, i) => (
         <group key={i}>
@@ -265,7 +260,6 @@ export function LakeSurface({
           <LilyPads
             point={[p[0] - n[0] * 0.9, 0.086, p[2] - n[1] * 0.9]}
             index={i}
-            clock={clock}
             reduced={reduced}
           />
           <mesh

@@ -522,11 +522,7 @@ export default function LakeScene({
                     color="#fff9ed"
                   />
                   <CameraRig action={action} layout={layout} />
-                  <LakeSurface
-                    layout={layout}
-                    clock={clock}
-                    reduced={reduced}
-                  />
+                  <LakeSurface layout={layout} reduced={reduced} />
                   <LakeSentryLighthouse
                     point={lighthousePoint(layout)}
                     clock={clock}
