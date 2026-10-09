@@ -7,7 +7,7 @@ import {
   PORT_ROW_SPACING,
   type NavigationLayout,
 } from "./navigation";
-import { t1aBackdropBounds, zeppelinBounds } from "./landmarks";
+import { t1aShoreSignBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
 
 export type Point = [number, number, number];
@@ -337,7 +337,7 @@ export function buildLakeLayout(
     ground.halfWidth,
     Math.max(
       zeppelinBounds({ halfWidth, halfDepth }).max[1],
-      t1aBackdropBounds({ halfWidth, halfDepth }).max[1],
+      t1aShoreSignBounds({ halfWidth, halfDepth }).max[1],
       cruiseHeight(Math.min(AIR_LEVELS - 1, navigation.lanes.plane - 1)) + 0.4,
     ),
     ground.halfDepth,
@@ -410,7 +410,7 @@ export function cameraFit(
       max: [antaresPoint(layout)[0] + 1.5, 8.2, antaresPoint(layout)[2] + 1.2],
     },
     zeppelinBounds(layout.water),
-    t1aBackdropBounds(layout.water),
+    t1aShoreSignBounds(layout.water),
     ...layout.airports.map((a) => ({
       min: [
         a.center[0] - 2.3 - (a.side === -1 ? a.apronExtra : 0),

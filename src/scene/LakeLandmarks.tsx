@@ -1,7 +1,6 @@
-import { useMemo, useRef, type RefObject } from "react";
+import { useContext, useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { ArrowUpRight } from "lucide-react";
 import {
   BufferGeometry,
   CatmullRomCurve3,
@@ -12,7 +11,8 @@ import {
 } from "three";
 import type { LakeLayout, Point } from "../layout";
 import { swimPose } from "../wildlife";
-import { Label } from "./SceneLabel";
+import { LandmarkLink } from "./LandmarkLink";
+import { SceneTraffic } from "./SceneTraffic";
 
 const LAKESENTRY_URL = "https://lakesentry.io/";
 const PONDPILOT_URL = "https://pondpilot.io/";
@@ -26,34 +26,6 @@ const unhover = () => {
 };
 const visit = (url: string) =>
   window.open(url, "_blank", "noopener,noreferrer");
-
-function LandmarkLink({
-  name,
-  href,
-  point,
-  theme,
-}: {
-  name: string;
-  href: string;
-  point: Point;
-  theme: "lighthouse" | "ducks" | "octopus";
-}) {
-  return (
-    <Label persistent center position={point} zIndexRange={[18, 0]}>
-      <a
-        className={`landmark-link ${theme}-link`}
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`Visit ${name} (opens in a new tab)`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <strong>{name}</strong>
-        <ArrowUpRight size={12} aria-hidden="true" />
-      </a>
-    </Label>
-  );
-}
 
 export function AntaresSkyscraper({ point }: { point: Point }) {
   return (
@@ -111,18 +83,12 @@ export function AntaresSkyscraper({ point }: { point: Point }) {
         <cylinderGeometry args={[0.025, 0.035, 0.95, 6]} />
         <meshStandardMaterial color="#8d9c98" />
       </mesh>
-      <Label persistent center position={[0, 7.65, 0]} zIndexRange={[18, 0]}>
-        <a
-          className="antares-logo"
-          href={ANTARES_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Visit Antares (opens in a new tab)"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <img src="/brands/antares.svg" alt="Antares" width="98" height="20" />
-        </a>
-      </Label>
+      <LandmarkLink
+        name="Antares"
+        href={ANTARES_URL}
+        point={[0, 7.65, 0]}
+        logo="/brands/antares.svg"
+      />
     </group>
   );
 }
@@ -379,6 +345,7 @@ export function PondPilotDucks({
   reduced: boolean;
 }) {
   const flock = useRef<Group>(null);
+  const traffic = useContext(SceneTraffic);
   const initial = swimPose("ducks", water, 0, reduced);
   useFrame(({ clock: ambientClock }) => {
     if (!flock.current) return;
@@ -388,7 +355,9 @@ export function PondPilotDucks({
       ambientClock.elapsedTime * 1000,
       reduced,
     );
-    flock.current.position.set(...pose.point);
+    const position = traffic?.current.get("ambient:ducks");
+    if (position) flock.current.position.copy(position);
+    else flock.current.position.set(...pose.point);
     flock.current.rotation.y = pose.heading;
   });
   return (
@@ -444,6 +413,7 @@ export function EightFDEOctopus({
   reduced: boolean;
 }) {
   const octopus = useRef<Group>(null);
+  const traffic = useContext(SceneTraffic);
   const arms = useRef<Group[]>([]);
   const geometry = useMemo(
     () => Array.from({ length: 8 }, (_, i) => octopusArm(i)),
@@ -469,7 +439,9 @@ export function EightFDEOctopus({
     if (!octopus.current) return;
     const elapsedMs = ambientClock.elapsedTime * 1000;
     const pose = swimPose("octopus", water, elapsedMs, reduced);
-    octopus.current.position.set(...pose.point);
+    const position = traffic?.current.get("ambient:octopus");
+    if (position) octopus.current.position.copy(position);
+    else octopus.current.position.set(...pose.point);
     octopus.current.rotation.y = pose.heading;
     arms.current.forEach((arm, i) => {
       arm.rotation.z = reduced

@@ -6,8 +6,14 @@ import { makePath, positionAt } from "./motion";
 import { buildSurroundings } from "./environment";
 import { lakeOutline } from "./shoreline";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
-import { separateTraffic } from "./traffic";
-import { swimPose, SWIM_RADIUS } from "./wildlife";
+import { ambientTraffic, separateTraffic } from "./traffic";
+import {
+  swimPose,
+  SWIM_RADIUS,
+  surfaceLoopMs,
+  SURFACE_INSET_X,
+  SURFACE_INSET_Z,
+} from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
 
 const tables: LakeObject[] = Array.from({ length: 18 }, (_, i) => ({
@@ -170,170 +176,154 @@ describe("shore and countryside", () => {
   });
 });
 
-describe("SecondStack shore mooring", () => {
-  it("keeps the hull in water and clear of mascot lanes and ship travel/holding positions", () => {
-    const ships = [
-      task("left", 0, 0),
-      task("right", 17, 17),
-      task("cross", 0, 17),
-    ];
+describe("ambient journeys across the lake", () => {
+  it("takes the duck flock, octopus and sailboat across both halves without leaving the water or touching piers", () => {
     const layouts = [
       buildLakeLayout([]),
-      buildLakeLayout(tables, ships),
+      buildLakeLayout(tables),
       buildLakeLayout(
         Array.from({ length: 30 }, (_, i) => ({
           ...tables[0],
           id: `m:c${i}.s.t`,
           catalog: `c${i}`,
         })),
-        ships,
       ),
     ];
-    for (const layout of layouts) {
-      for (let at = 0; at < 420000; at += 5000) {
-        const boat = sailboatPose(layout.water, at);
-        for (const [x, z] of [
-          [0, 1.65],
-          [-0.6, 0.65],
-          [-0.55, -1.3],
-          [0.55, -1.3],
-          [0.6, 0.65],
-        ]) {
-          const px =
-            boat.point[0] +
-            x * Math.cos(boat.heading) +
-            z * Math.sin(boat.heading);
-          const pz =
-            boat.point[2] -
-            x * Math.sin(boat.heading) +
-            z * Math.cos(boat.heading);
-          expect(insideLake(layout, px, pz)).toBe(true);
-        }
-        for (const mascot of ["ducks", "octopus"] as const) {
-          const p = swimPose(mascot, layout.water, at).point;
+    for (const lake of layouts) {
+      const period = surfaceLoopMs(lake.water);
+      for (const kind of ["ducks", "octopus", "sailboat"] as const) {
+        const poseAt = (at: number, reduced = false) =>
+          kind === "sailboat"
+            ? sailboatPose(lake.water, at, reduced)
+            : swimPose(kind, lake.water, at, reduced);
+        const points: Vector3[] = [];
+        for (let at = 0; at <= period; at += period / 240) {
+          const pose = poseAt(at);
+          const p = new Vector3(...pose.point);
+          points.push(p);
+          const radius = kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADIUS;
+          for (const [x, z] of [
+            [radius, 0],
+            [-radius, 0],
+            [0, radius],
+            [0, -radius],
+          ])
+            expect(insideLake(lake, p.x + x, p.z + z)).toBe(true);
+          for (const pier of lake.piers)
+            expect(Math.abs(p.z - pier.center[2])).toBeGreaterThan(
+              2.7 + radius,
+            );
+          // Models face their travel direction, including both turns.
+          const next = new Vector3(...poseAt(at + 10).point)
+            .sub(p)
+            .setY(0)
+            .normalize();
           expect(
-            Math.hypot(p[0] - boat.point[0], p[2] - boat.point[2]),
-          ).toBeGreaterThan(SAILBOAT_RADIUS + SWIM_RADIUS + 0.18);
+            next.dot(
+              new Vector3(Math.sin(pose.heading), 0, Math.cos(pose.heading)),
+            ),
+          ).toBeGreaterThan(0.99);
+        }
+        expect(
+          Math.max(...points.map((p) => p.x)) -
+            Math.min(...points.map((p) => p.x)),
+        ).toBeGreaterThan((lake.water.halfWidth - SURFACE_INSET_X) * 1.99);
+        expect(
+          Math.max(...points.map((p) => p.z)) -
+            Math.min(...points.map((p) => p.z)),
+        ).toBeGreaterThan((lake.water.halfDepth - SURFACE_INSET_Z) * 1.99);
+        expect(
+          new Vector3(...poseAt(period - 1).point).distanceTo(
+            new Vector3(...poseAt(period + 1).point),
+          ),
+        ).toBeLessThan(0.01);
+        expect(poseAt(86_400_000, true)).toEqual(poseAt(0, true));
+        expect(poseAt(0).point).not.toEqual(poseAt(20_000).point);
+      }
+      for (let at = 0; at <= period * 2; at += period / 200) {
+        const items = ambientTraffic(lake.water, at, false, true);
+        for (let i = 0; i < items.length; i++)
+          for (const other of items.slice(i + 1))
+            expect(
+              items[i].position.distanceTo(other.position),
+            ).toBeGreaterThan(items[i].radius! + other.radius! + 0.18);
+      }
+    }
+  });
+
+  it("shares clearance with moving ships and stationary unresolved paper ships while replay is paused", () => {
+    const jobs = [
+      task("left", 0, 0),
+      task("right", 17, 17),
+      task("cross", 0, 17),
+      ...Array.from({ length: 3 }, (_, i) =>
+        task(`processing${i}`, 0, 3, "buoy"),
+      ),
+    ];
+    const lake = buildLakeLayout(tables, jobs);
+    const paths = jobs.map((a) =>
+      makePath(a, lake.objects, lake.airports, lake.piers, undefined, lake),
+    );
+    for (const paused of [true, false])
+      for (
+        let elapsed = 0;
+        elapsed < surfaceLoopMs(lake.water) * 2;
+        elapsed += 250
+      ) {
+        const vessels = jobs.map((a, i) => ({
+          key: a.id,
+          kind: a.kind,
+          fixed: paused || a.kind === "buoy",
+          position: positionAt(
+            a,
+            paths[i],
+            paused ? 45_000 : (elapsed % 160_000) + 1000,
+          ).position,
+        }));
+        const swimmers = ambientTraffic(lake.water, elapsed, false, true);
+        const resolved = separateTraffic([...vessels, ...swimmers], lake.water);
+        for (const swimmer of swimmers) {
+          const p = resolved.get(swimmer.key)!;
+          expect(insideLake(lake, p.x, p.z)).toBe(true);
+          for (const vessel of vessels) {
+            const q = resolved.get(vessel.key)!;
+            expect(
+              Math.hypot(p.x - q.x, p.z - q.z),
+              `${swimmer.key} / ${vessel.key} at ${elapsed}`,
+            ).toBeGreaterThan(swimmer.radius! + 0.82 + 0.17);
+            if (vessel.fixed) expect(q).toEqual(vessel.position);
+          }
+          for (const other of swimmers.filter((o) => o.key !== swimmer.key))
+            expect(p.distanceTo(resolved.get(other.key)!)).toBeGreaterThan(
+              swimmer.radius! + other.radius! + 0.17,
+            );
         }
       }
-      const center = sailboatPose(layout.water, 0).point;
-      for (const ship of ships) {
-        if (!layout.objects.some((o) => o.id === ship.route.source_ids[0]))
-          continue;
-        const path = makePath(
-          ship,
-          layout.objects,
-          layout.airports,
-          layout.piers,
-          undefined,
-          layout,
-        );
-        for (const p of [
-          ...path.curve.getSpacedPoints(100),
-          ...Array.from(
-            { length: 60 },
-            (_, i) => positionAt(ship, path, 181000 + i * 1000).position,
-          ),
-        ])
-          expect(Math.hypot(p.x - center[0], p.z - center[2])).toBeGreaterThan(
-            SAILBOAT_RADIUS + 0.82 + 0.18,
-          );
-      }
-      expect(sailboatPose(layout.water, 0, true)).toEqual(
-        sailboatPose(layout.water, 123456, true),
-      );
-    }
+    expect(ambientTraffic(lake.water, 0, true, true)).toEqual(
+      ambientTraffic(lake.water, 123456, true, true),
+    );
+    expect(
+      ambientTraffic(lake.water, 0, false, false).map((a) => a.key),
+    ).toEqual(["ambient:sailboat"]);
+  });
+
+  it("keeps aircraft above the SecondStack mast at crossings", () => {
+    const lake = buildLakeLayout(tables);
+    const boat = ambientTraffic(lake.water, 0, false, false)[0];
+    const plane = {
+      key: "plane",
+      kind: "plane" as const,
+      fixed: false,
+      position: boat.position.clone().setY(3.8),
+    };
+    const positions = separateTraffic([boat, plane], lake.water);
+    expect(
+      positions.get("plane")!.y - positions.get(boat.key)!.y,
+    ).toBeGreaterThanOrEqual(4.3);
   });
 });
 
 describe("replay navigation", () => {
-  it("keeps both mascots in separate open-water lanes throughout the full replay day", () => {
-    const layouts = [buildLakeLayout([]), buildLakeLayout(tables)];
-    for (const layout of layouts) {
-      for (let at = 0; at <= 86_400_000; at += 60_000) {
-        const duck = swimPose("ducks", layout.water, at);
-        const octopus = swimPose("octopus", layout.water, at);
-        expect(
-          new Vector3(...duck.point).distanceTo(new Vector3(...octopus.point)),
-        ).toBeGreaterThan(SWIM_RADIUS * 2);
-        for (const pose of [duck, octopus]) {
-          expect(Math.abs(pose.point[0]) + SWIM_RADIUS).toBeLessThan(
-            layout.water.halfWidth - 0.3,
-          );
-          expect(Math.abs(pose.point[2]) + SWIM_RADIUS).toBeLessThan(
-            layout.water.halfDepth - 2.7,
-          );
-          for (const pier of layout.piers)
-            expect(Math.abs(pose.point[0] - pier.center[0])).toBeGreaterThan(
-              pier.width / 2 + SWIM_RADIUS,
-            );
-        }
-      }
-    }
-  });
-  it("swims at an ambient pace and holds visible positions with reduced motion", () => {
-    const water = buildLakeLayout(tables).water;
-    for (const mascot of ["ducks", "octopus"] as const) {
-      const first = swimPose(mascot, water, 123456789);
-      swimPose(mascot, water, 123456789 + 86_400_000);
-      expect(swimPose(mascot, water, 123456789)).toEqual(first);
-      expect(swimPose(mascot, water, 123476789).point).not.toEqual(first.point);
-      expect(
-        new Vector3(...swimPose(mascot, water, 1000).point).distanceTo(
-          new Vector3(...swimPose(mascot, water, 0).point),
-        ),
-      ).toBeGreaterThan(0.2);
-      expect(swimPose(mascot, water, 123456789, true)).toEqual(
-        swimPose(mascot, water, 123556789, true),
-      );
-    }
-  });
-  it("leaves mascot lanes clear of ship turns, frozen holding positions and processing buoys", () => {
-    const ships = [
-      task("left", 0, 0),
-      task("right", 17, 17),
-      task("cross", 0, 17),
-    ];
-    const buoys = Array.from({ length: 100 }, (_, i) =>
-      task(`buoy${i}`, 0, 3, "buoy"),
-    );
-    for (const attempts of [ships, buoys]) {
-      const layout = buildLakeLayout(tables, attempts);
-      for (const a of attempts) {
-        const path = makePath(
-          a,
-          layout.objects,
-          layout.airports,
-          layout.piers,
-          undefined,
-          layout,
-        );
-        const positions =
-          a.kind === "buoy"
-            ? [path.from]
-            : [
-                ...path.curve.getSpacedPoints(100),
-                ...Array.from(
-                  { length: 60 },
-                  (_, i) => positionAt(a, path, 181000 + i * 1000).position,
-                ),
-              ];
-        for (const mascot of ["ducks", "octopus"] as const) {
-          for (let at = 0; at < 420_000; at += 10_000) {
-            const point = new Vector3(
-              ...swimPose(mascot, layout.water, at).point,
-            );
-            const radius = a.kind === "buoy" ? 0.35 : 0.82;
-            for (const position of positions)
-              expect(
-                Math.hypot(point.x - position.x, point.z - position.z),
-                `${a.id} / ${mascot} at ${at}: ${position.toArray()} vs ${point.toArray()}`,
-              ).toBeGreaterThan(SWIM_RADIUS + radius + 0.18);
-          }
-        }
-      }
-    }
-  });
   it("reserves separate lanes and moorings for overlapping attempts, reusing them after the display window", () => {
     const first = task("first"),
       second = task("second"),

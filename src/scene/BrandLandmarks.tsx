@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Billboard, Line } from "@react-three/drei";
 import { Group, SRGBColorSpace, TextureLoader, type Texture } from "three";
 import type { LakeLayout } from "../layout";
-import { t1aBackdrop, zeppelinDimensions, zeppelinPose } from "../landmarks";
+import { t1aShoreSign, zeppelinDimensions, zeppelinPose } from "../landmarks";
 import { Label } from "./SceneLabel";
+import { LandmarkLink } from "./LandmarkLink";
 
 const ALCHEMIST_URL = "https://getalchemist.io/";
 const T1A_URL = "https://t1a.com/";
@@ -181,37 +182,45 @@ export function AlchemistZeppelin({
           </mesh>
         )),
       )}
-      <Label persistent center position={[0, r + 0.6, 0]} zIndexRange={[18, 0]}>
-        <a
-          className="brand-accessible-link airship-site-link"
-          href={ALCHEMIST_URL}
-          target="_blank"
-          rel="noreferrer noopener"
-          aria-label="Visit Alchemist"
-        >
-          <img
-            className="airship-mark"
-            src="/brands/alchemist-mark.svg"
-            alt=""
-          />
-          <img
-            className="airship-wordmark"
-            src="/brands/alchemist.svg"
-            alt=""
-          />
-          <span>Alchemist ↗</span>
-        </a>
-      </Label>
+      <LandmarkLink
+        name="Alchemist"
+        href={ALCHEMIST_URL}
+        point={[0, r + 0.6, 0]}
+      />
     </group>
   );
 }
 
-export function T1ABackdrop({ water }: { water: LakeLayout["water"] }) {
+export function T1AShoreSign({ water }: { water: LakeLayout["water"] }) {
+  const compact = useThree((state) => state.size.width < 600);
   const [logo] = useBrandTextures(["/brands/t1a.svg"]);
-  const { point, width, height, logoWidth, centerY } = t1aBackdrop(water);
+  const { point, width, height, logoWidth, centerY } = t1aShoreSign(water);
+  if (compact)
+    return (
+      <Label
+        persistent
+        center
+        zIndexRange={[18, 0]}
+        calculatePosition={(_object, _camera, size) => [
+          size.width / 2,
+          size.height - 80,
+        ]}
+      >
+        <a
+          className="t1a-bottom-logo"
+          href={T1A_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visit T1A"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <img src="/brands/t1a.svg" alt="T1A" />
+        </a>
+      </Label>
+    );
   return (
     <group
-      name="t1a-backdrop"
+      name="t1a-shore-sign"
       position={point}
       onClick={(event) => {
         event.stopPropagation();
@@ -227,7 +236,7 @@ export function T1ABackdrop({ water }: { water: LakeLayout["water"] }) {
         <cylinderGeometry args={[0.11, 0.16, centerY, 8]} />
         <meshStandardMaterial color="#6c7a64" flatShading />
       </mesh>
-      {/* A raised, camera-facing sign remains readable in the portrait overview. */}
+      {/* A low foreground sign keeps the logo below the lake activity. */}
       <Billboard position={[0, centerY, 0]} follow lockX lockZ>
         <mesh>
           <boxGeometry args={[width, height, 0.16]} />
@@ -253,6 +262,7 @@ export function T1ABackdrop({ water }: { water: LakeLayout["water"] }) {
           target="_blank"
           rel="noreferrer noopener"
           aria-label="Visit T1A"
+          onClick={(event) => event.stopPropagation()}
         >
           T1A ↗
         </a>

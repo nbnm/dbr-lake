@@ -1,30 +1,32 @@
 import type { LakeLayout, Point } from "./layout";
+import { surfacePose, SURFACE_INSET_X, SURFACE_INSET_Z } from "./wildlife";
 
 export const SAILBOAT_RADIUS = 1.8;
 
-// A shore mooring outside the ship corridors and the mascots' swimming lanes.
 export function sailboatPose(
   water: LakeLayout["water"],
   elapsedMs: number,
   reduced = false,
 ) {
+  const pose = surfacePose("sailboat", water, elapsedMs, reduced);
   const phase = reduced ? 0 : elapsedMs / 5500;
   return {
     point: [
-      water.halfWidth - 2.15,
-      0.13 + (reduced ? 0 : Math.sin(phase) * 0.018),
-      -water.halfDepth + 2.9,
+      pose.point[0],
+      pose.point[1] + (reduced ? 0 : Math.sin(phase) * 0.018),
+      pose.point[2],
     ] as Point,
-    heading: -Math.PI / 3 + (reduced ? 0 : Math.sin(phase * 0.6) * 0.025),
+    heading: pose.heading,
     roll: reduced ? 0 : Math.sin(phase * 0.9) * 0.025,
   };
 }
 
-export function inSailboatMooring(point: Point, water: LakeLayout["water"]) {
-  const center = sailboatPose(water, 0).point;
+export function inSailingArea(point: Point, water: LakeLayout["water"]) {
   return (
-    Math.hypot(point[0] - center[0], point[2] - center[2]) <
-    SAILBOAT_RADIUS + 0.4
+    Math.abs(point[0]) <
+      water.halfWidth - SURFACE_INSET_X + SAILBOAT_RADIUS + 0.4 &&
+    Math.abs(point[2]) <
+      water.halfDepth - SURFACE_INSET_Z + SAILBOAT_RADIUS + 0.4
   );
 }
 
@@ -75,22 +77,22 @@ export function zeppelinBounds(water: LakeLayout["water"]) {
   };
 }
 
-export function t1aBackdrop(water: LakeLayout["water"]) {
+export function t1aShoreSign(water: LakeLayout["water"]) {
   const width = Math.max(5.2, Math.min(13, water.halfWidth * 0.3));
   const logoWidth = width - 0.75;
   const height = (logoWidth * 350) / 911 + 0.6;
   return {
-    point: [0, 0.08, -water.halfDepth - 4.6] as Point,
+    point: [0, 0.08, water.halfDepth + 4.1] as Point,
     width,
     height,
     logoWidth,
-    centerY: 3.2 + height / 2,
+    centerY: 0.35 + height / 2,
   };
 }
 
-export function t1aBackdropBounds(water: LakeLayout["water"]) {
-  const { point, width, height, centerY } = t1aBackdrop(water);
-  // The raised panel faces the camera, so include its full yaw sweep.
+export function t1aShoreSignBounds(water: LakeLayout["water"]) {
+  const { point, width, height, centerY } = t1aShoreSign(water);
+  // The panel faces the camera, so include its full yaw sweep.
   return {
     min: [-width / 2, 0, point[2] - width / 2] as Point,
     max: [

@@ -1,17 +1,53 @@
 import { Vector3 } from "three";
 import type { LakeLayout } from "./layout";
 import type { Attempt } from "./types";
-import { SHIP_SHORE_INSET } from "./wildlife";
+import {
+  SHIP_SHORE_INSET,
+  swimPose,
+  SWIM_RADIUS,
+  SURFACE_INSET_X,
+  SURFACE_INSET_Z,
+} from "./wildlife";
+import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 
 export interface TrafficPosition {
   key: string;
   kind: Attempt["kind"];
   position: Vector3;
   fixed: boolean;
+  radius?: number;
+  surfaceHeight?: number;
+  insetX?: number;
+  insetZ?: number;
+}
+
+export function ambientTraffic(
+  water: LakeLayout["water"],
+  elapsedMs: number,
+  reduced: boolean,
+  mascots: boolean,
+): TrafficPosition[] {
+  return (
+    ["sailboat", ...(mascots ? (["ducks", "octopus"] as const) : [])] as const
+  ).map((kind) => ({
+    key: `ambient:${kind}`,
+    kind: "ship",
+    position: new Vector3(
+      ...(kind === "sailboat"
+        ? sailboatPose(water, elapsedMs, reduced)
+        : swimPose(kind, water, elapsedMs, reduced)
+      ).point,
+    ),
+    fixed: false,
+    radius: kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADIUS,
+    surfaceHeight: kind === "sailboat" ? 4.3 : 1.4,
+    insetX: SURFACE_INSET_X,
+    insetZ: SURFACE_INSET_Z,
+  }));
 }
 
 // A local visual safety margin supplements the fixed corridors at crossings.
-// This is a pure event-time calculation: no frame history, random steering,
+// This is a pure calculation from the replay and ambient clocks: no frame history, random steering,
 // execution delays, or fabricated task state are introduced by yielding.
 export function separateTraffic(
   items: TrafficPosition[],
@@ -22,14 +58,57 @@ export function separateTraffic(
   const constrain = (i: number) => {
     if (ordered[i].kind === "plane" || ordered[i].fixed) return;
     const p = positions[i];
+    const insetX = ordered[i].insetX ?? SHIP_SHORE_INSET;
+    const insetZ = ordered[i].insetZ ?? 4.1;
     p.x = Math.max(
-      -water.halfWidth + SHIP_SHORE_INSET,
-      Math.min(water.halfWidth - SHIP_SHORE_INSET, p.x),
+      -water.halfWidth + insetX,
+      Math.min(water.halfWidth - insetX, p.x),
     );
     p.z = Math.max(
-      -water.halfDepth + 4.1,
-      Math.min(water.halfDepth - 4.1, p.z),
+      -water.halfDepth + insetZ,
+      Math.min(water.halfDepth - insetZ, p.z),
     );
+  };
+  // At a bank, a radial push can be clipped before it clears the other hull.
+  // Slide to the nearest feasible circle/shore-boundary intersection instead.
+  const clearFixed = (
+    i: number,
+    other: Vector3,
+    clearance: number,
+    desired: Vector3,
+  ) => {
+    const p = positions[i];
+    if (Math.hypot(p.x - other.x, p.z - other.z) >= clearance) return;
+    const ix = ordered[i].insetX ?? SHIP_SHORE_INSET;
+    const iz = ordered[i].insetZ ?? 4.1;
+    const minX = -water.halfWidth + ix,
+      maxX = water.halfWidth - ix;
+    const minZ = -water.halfDepth + iz,
+      maxZ = water.halfDepth - iz;
+    const radius = clearance + 0.001;
+    const candidates: Vector3[] = [];
+    for (const x of [minX, maxX]) {
+      const square = radius ** 2 - (x - other.x) ** 2;
+      if (square >= 0)
+        for (const side of [-1, 1])
+          candidates.push(
+            new Vector3(x, p.y, other.z + side * Math.sqrt(square)),
+          );
+    }
+    for (const z of [minZ, maxZ]) {
+      const square = radius ** 2 - (z - other.z) ** 2;
+      if (square >= 0)
+        for (const side of [-1, 1])
+          candidates.push(
+            new Vector3(other.x + side * Math.sqrt(square), p.y, z),
+          );
+    }
+    const feasible = candidates
+      .filter((q) => q.x >= minX && q.x <= maxX && q.z >= minZ && q.z <= maxZ)
+      .sort(
+        (a, b) => a.distanceToSquared(desired) - b.distanceToSquared(desired),
+      );
+    if (feasible[0]) p.copy(feasible[0]);
   };
   for (let pass = 0; pass < 8; pass++) {
     const cells = new Map<string, number[]>();
@@ -52,11 +131,14 @@ export function separateTraffic(
               q = positions[j];
             if (a.fixed && b.fixed) continue;
             const aircraft = a.kind === "plane" || b.kind === "plane";
-            const gap = a.kind === "plane" && b.kind === "plane" ? 0.7 : 1.15;
+            const gap =
+              a.kind === "plane" && b.kind === "plane"
+                ? 0.7
+                : Math.max(1.15, a.surfaceHeight ?? 0, b.surfaceHeight ?? 0);
             if (aircraft && Math.abs(p.y - q.y) >= gap) continue;
-            const radius = (kind: Attempt["kind"]) =>
-              kind === "plane" ? 1 : kind === "ship" ? 0.82 : 0.35;
-            const clearance = radius(a.kind) + radius(b.kind) + 0.18;
+            const radius = (item: TrafficPosition) =>
+              item.radius ?? (item.kind === "plane" ? 1 : 0.82);
+            const clearance = radius(a) + radius(b) + 0.18;
             const dx = p.x - q.x,
               dz = p.z - q.z;
             const distance = Math.hypot(dx, dz);
@@ -82,12 +164,16 @@ export function separateTraffic(
             const amount = clearance - distance + 0.001;
             const shareA = a.fixed ? 0 : b.fixed ? 1 : 0.5;
             const shareB = b.fixed ? 0 : a.fixed ? 1 : 0.5;
+            const desiredA = p.clone(),
+              desiredB = q.clone();
             p.x += nx * amount * shareA;
             p.z += nz * amount * shareA;
             q.x -= nx * amount * shareB;
             q.z -= nz * amount * shareB;
             constrain(i);
             constrain(j);
+            if (b.fixed && !a.fixed) clearFixed(i, q, clearance, desiredA);
+            if (a.fixed && !b.fixed) clearFixed(j, p, clearance, desiredB);
           }
         }
     }

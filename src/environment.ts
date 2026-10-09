@@ -4,7 +4,7 @@ import {
   type LakeLayout,
   type Point,
 } from "./layout";
-import { t1aBackdrop } from "./landmarks";
+import { t1aShoreSign } from "./landmarks";
 
 export interface FieldPatch {
   center: Point;
@@ -56,7 +56,7 @@ export function buildSurroundings(layout: LakeLayout) {
   const landmarks = [
     lighthousePoint(layout),
     antaresPoint(layout),
-    t1aBackdrop(layout.water).point,
+    t1aShoreSign(layout.water).point,
   ];
   const nearRoad = (x: number, z: number) =>
     roads.some(({ from, to }) => {

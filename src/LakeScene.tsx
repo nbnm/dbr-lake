@@ -22,13 +22,15 @@ import {
 } from "./layout";
 import { isOverdue } from "./state";
 import { makePath, positionAt, type MotionPath } from "./motion";
-import { separateTraffic } from "./traffic";
+import { ambientTraffic, separateTraffic } from "./traffic";
+import { SceneTraffic } from "./scene/SceneTraffic";
+import { LandmarkPlaques } from "./scene/LandmarkLink";
 import { Label, LabelPortal, SceneCaptions } from "./scene/SceneLabel";
 import { Dock, Airport } from "./scene/HarborModels";
 import { PaperPlane, PaperShip } from "./scene/PaperModels";
 import { LakeSurface } from "./scene/LakeSurface";
 import { SecondStackSailboat } from "./scene/SecondStackSailboat";
-import { AlchemistZeppelin, T1ABackdrop } from "./scene/BrandLandmarks";
+import { AlchemistZeppelin, T1AShoreSign } from "./scene/BrandLandmarks";
 import {
   AntaresSkyscraper,
   EightFDEOctopus,
@@ -167,7 +169,9 @@ function Vessel({
           ? "#a9b7ae"
           : isExport(a)
             ? "#f3e2bc"
-            : "#ffffff";
+            : a.kind === "buoy"
+              ? "#dedfce"
+              : "#ffffff";
   const moving =
     a.phase === "running" && a.collection_stale_at === null && !reduced;
   useFrame(() => {
@@ -183,7 +187,7 @@ function Vessel({
           ? Math.sin(at / 3700 + a.id.length) * 0.11
           : 0;
       paper.current.rotation.x =
-        a.kind === "ship" && moving
+        a.kind !== "plane" && moving
           ? Math.sin(at / 2400 + a.id.length) * 0.025
           : 0;
       paper.current.position.y = moving
@@ -295,23 +299,8 @@ function Vessel({
         <group ref={paper}>
           {a.kind === "plane" ? (
             <PaperPlane tint={tint} />
-          ) : a.kind === "ship" ? (
-            <PaperShip tint={tint} />
           ) : (
-            <>
-              <mesh position={[0, 0.02, 0]}>
-                <cylinderGeometry args={[0.25, 0.35, 0.22, 8]} />
-                <meshStandardMaterial color="#d5bb83" />
-              </mesh>
-              <mesh position={[0, 0.27, 0]}>
-                <cylinderGeometry args={[0.045, 0.05, 0.35, 6]} />
-                <meshStandardMaterial color="#718a7b" />
-              </mesh>
-              <mesh position={[0, 0.48, 0]}>
-                <octahedronGeometry args={[0.16]} />
-                <meshStandardMaterial color={tint} />
-              </mesh>
-            </>
+            <PaperShip tint={tint} />
           )}
         </group>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.14, 0]}>
@@ -367,6 +356,9 @@ function VesselTraffic({
   reduced,
   selected,
   onSelect,
+  mascots,
+  traffic,
+  playing,
 }: {
   attempts: Attempt[];
   layout: LakeLayout;
@@ -374,6 +366,9 @@ function VesselTraffic({
   reduced: boolean;
   selected: Selection;
   onSelect: (s: Selection) => void;
+  mascots: boolean;
+  traffic: RefObject<Map<string, Vector3>>;
+  playing: boolean;
 }) {
   const cache = useMemo(() => new Map<string, MotionPath>(), [layout]);
   const plans = useMemo(
@@ -396,23 +391,31 @@ function VesselTraffic({
       }),
     [attempts, layout, cache],
   );
-  const traffic = useRef(new Map<string, Vector3>());
-  useFrame(() => {
+  useFrame(({ clock: ambientClock }) => {
     traffic.current = separateTraffic(
-      plans.map(({ key, attempt: a, path }) => ({
-        key,
-        kind: a.kind,
-        position: positionAt(
-          a,
-          path,
-          reduced ? (a.started_at ?? clock.current) : clock.current,
-        ).position,
-        fixed:
-          reduced ||
-          a.kind === "buoy" ||
-          a.phase !== "running" ||
-          a.collection_stale_at !== null,
-      })),
+      [
+        ...ambientTraffic(
+          layout.water,
+          ambientClock.elapsedTime * 1000,
+          reduced,
+          mascots,
+        ),
+        ...plans.map(({ key, attempt: a, path }) => ({
+          key,
+          kind: a.kind,
+          position: positionAt(
+            a,
+            path,
+            reduced ? (a.started_at ?? clock.current) : clock.current,
+          ).position,
+          fixed:
+            !playing ||
+            reduced ||
+            a.kind === "buoy" ||
+            a.phase !== "running" ||
+            a.collection_stale_at !== null,
+        })),
+      ],
       layout.water,
     );
   }, -1);
@@ -472,6 +475,7 @@ export default function LakeScene({
   eggs,
   captions,
   action,
+  playing,
 }: {
   layout: LakeLayout;
   attempts: Attempt[];
@@ -482,9 +486,12 @@ export default function LakeScene({
   eggs: boolean;
   captions: boolean;
   action: CameraAction | null;
+  playing: boolean;
 }) {
   // Stable DOM attachment prevents HTML labels from rebuilding when events connect.
   const portal = useRef<HTMLDivElement>(null!);
+  const traffic = useRef(new Map<string, Vector3>());
+  const plaques = useMemo(() => new Map(), [layout]);
   return (
     <div
       ref={portal}
@@ -504,56 +511,67 @@ export default function LakeScene({
         >
           <LabelPortal.Provider value={portal}>
             <SceneCaptions.Provider value={captions}>
-              <color attach="background" args={["#f0f3eb"]} />
-              <ambientLight intensity={1.35} />
-              <directionalLight
-                position={[8, 18, 9]}
-                intensity={2}
-                color="#fff9ed"
-              />
-              <CameraRig action={action} layout={layout} />
-              <LakeSurface layout={layout} clock={clock} reduced={reduced} />
-              <LakeSentryLighthouse
-                point={lighthousePoint(layout)}
-                clock={clock}
-                reduced={reduced}
-              />
-              <AntaresSkyscraper point={antaresPoint(layout)} />
-              <SecondStackSailboat water={layout.water} reduced={reduced} />
-              <T1ABackdrop water={layout.water} />
-              <AlchemistZeppelin water={layout.water} reduced={reduced} />
-              {layout.docks.map((dock) => (
-                <Dock
-                  key={dock.id}
-                  dock={dock}
-                  selected={selected}
-                  onSelect={onSelect}
-                />
-              ))}
-              {layout.airports.map((airport) => (
-                <Airport
-                  key={airport.id}
-                  airport={airport}
-                  selected={selected}
-                  onSelect={onSelect}
-                  clock={clock}
-                  reduced={reduced}
-                />
-              ))}
-              <VesselTraffic
-                attempts={attempts}
-                layout={layout}
-                clock={clock}
-                reduced={reduced}
-                selected={selected}
-                onSelect={onSelect}
-              />
-              {eggs && (
-                <>
-                  <PondPilotDucks reduced={reduced} water={layout.water} />
-                  <EightFDEOctopus reduced={reduced} water={layout.water} />
-                </>
-              )}
+              <SceneTraffic.Provider value={traffic}>
+                <LandmarkPlaques.Provider value={plaques}>
+                  <color attach="background" args={["#f0f3eb"]} />
+                  <ambientLight intensity={1.35} />
+                  <directionalLight
+                    position={[8, 18, 9]}
+                    intensity={2}
+                    color="#fff9ed"
+                  />
+                  <CameraRig action={action} layout={layout} />
+                  <LakeSurface
+                    layout={layout}
+                    clock={clock}
+                    reduced={reduced}
+                  />
+                  <LakeSentryLighthouse
+                    point={lighthousePoint(layout)}
+                    clock={clock}
+                    reduced={reduced}
+                  />
+                  <AntaresSkyscraper point={antaresPoint(layout)} />
+                  <SecondStackSailboat water={layout.water} reduced={reduced} />
+                  <T1AShoreSign water={layout.water} />
+                  <AlchemistZeppelin water={layout.water} reduced={reduced} />
+                  {layout.docks.map((dock) => (
+                    <Dock
+                      key={dock.id}
+                      dock={dock}
+                      selected={selected}
+                      onSelect={onSelect}
+                    />
+                  ))}
+                  {layout.airports.map((airport) => (
+                    <Airport
+                      key={airport.id}
+                      airport={airport}
+                      selected={selected}
+                      onSelect={onSelect}
+                      clock={clock}
+                      reduced={reduced}
+                    />
+                  ))}
+                  <VesselTraffic
+                    attempts={attempts}
+                    layout={layout}
+                    clock={clock}
+                    reduced={reduced}
+                    selected={selected}
+                    onSelect={onSelect}
+                    mascots={eggs}
+                    traffic={traffic}
+                    playing={playing}
+                  />
+                  {eggs && (
+                    <>
+                      <PondPilotDucks reduced={reduced} water={layout.water} />
+                      <EightFDEOctopus reduced={reduced} water={layout.water} />
+                    </>
+                  )}
+                </LandmarkPlaques.Provider>
+              </SceneTraffic.Provider>
             </SceneCaptions.Provider>
           </LabelPortal.Provider>
         </Canvas>

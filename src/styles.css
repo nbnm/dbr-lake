@@ -2879,22 +2879,25 @@ button.external-source > svg:last-child {
 .inspection-drawer .panel-heading {
   padding-right: 52px;
 }
-.antares-logo {
-  display: flex;
-  padding: 7px 10px;
-  background: #fcfcf4f2;
-  border: 1px solid #c6d1c3;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px #344f3810;
-}
-.antares-logo img {
+.landmark-wordmark {
   display: block;
-  width: 98px;
-  height: 20px;
+  width: 74px;
+  height: 15px;
 }
-.antares-logo:hover {
-  background: #fff;
-  border-color: #9fac9a;
+.t1a-bottom-logo {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #314d40;
+}
+.t1a-bottom-logo img {
+  display: block;
+  width: 78px;
+  height: 30px;
+}
+.t1a-bottom-logo:focus-visible {
+  outline: 2px solid #327bf6;
+  outline-offset: 3px;
 }
 .task-history-row {
   padding: 8px 0;
@@ -2985,17 +2988,13 @@ button.external-source > svg:last-child {
     padding: 5px 7px;
     gap: 4px;
   }
-  .focus-mode .antares-logo {
-    padding: 5px 7px;
-  }
-  .focus-mode .antares-logo img {
-    width: 72px;
-    height: 15px;
+  .focus-mode .landmark-wordmark {
+    width: 60px;
+    height: 12px;
   }
 }
 
 /* Physical logo prints stay visible; reveal the text links for keyboard focus. */
-.sailboat-accessible-link,
 .brand-accessible-link {
   display: block;
   width: 1px;
@@ -3004,7 +3003,6 @@ button.external-source > svg:last-child {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.sailboat-accessible-link:focus-visible,
 .brand-accessible-link:focus-visible {
   width: auto;
   height: auto;
@@ -3014,44 +3012,4 @@ button.external-source > svg:last-child {
   background: #fcfcf4;
   border-radius: 5px;
   font-size: 11px;
-}
-
-.airship-site-link img {
-  display: none;
-}
-
-/* A side hull print becomes edge-on in portrait; keep the actual logo legible. */
-@media (max-width: 600px) {
-  .airship-site-link {
-    width: auto;
-    height: auto;
-    clip-path: none;
-    overflow: visible;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 7px;
-    border-radius: 4px;
-    background: #355c4d;
-    transform: translateY(-12px);
-  }
-  .airship-site-link img {
-    display: block;
-  }
-  .airship-site-link .airship-mark {
-    width: 14px;
-    height: auto;
-  }
-  .airship-site-link .airship-wordmark {
-    width: 82px;
-    height: auto;
-  }
-  .airship-site-link span {
-    display: none;
-  }
-  .airship-site-link:focus-visible {
-    background: #355c4d;
-    outline: 2px solid #d4b474;
-    outline-offset: 3px;
-  }
 }

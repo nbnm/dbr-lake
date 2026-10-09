@@ -4,44 +4,69 @@ export type LakeMascot = "ducks" | "octopus";
 export const SWIM_RADIUS = 1.35;
 export const SHIP_SHORE_INSET = 4.8;
 export const BUOY_SHORE_INSET = 4.7;
-const SHORE_INSET = 2.1;
-const LOOP_WIDTH = 0.28;
+export type SurfaceLandmark = LakeMascot | "sailboat";
+export const SURFACE_INSET_X = 3.9;
+export const SURFACE_INSET_Z = 5.6;
 
-// Opposite shoreline lanes stay clear of piers, central buoys and ship routes.
-// Ambient animation time keeps swimming independent of replay controls.
+export function surfaceLoopMs(water: LakeLayout["water"]) {
+  return Math.max(
+    90_000,
+    Math.hypot(
+      water.halfWidth - SURFACE_INSET_X,
+      water.halfDepth - SURFACE_INSET_Z,
+    ) * 7000,
+  );
+}
+
+// A wide circuit crosses both halves of the lake. The three swimmers keep
+// a third of a lap apart; frame-level clearance lets them pass job vessels.
+// These positions depend only on ambient time, never on replay state.
+export function surfacePose(
+  kind: SurfaceLandmark,
+  water: LakeLayout["water"],
+  elapsedMs: number,
+  reduced = false,
+) {
+  const offset = kind === "ducks" ? 0 : kind === "octopus" ? 1 : 2;
+  const period = surfaceLoopMs(water);
+  const phase =
+    (reduced ? 0 : elapsedMs / period) * Math.PI * 2 +
+    0.65 +
+    (offset * Math.PI * 2) / 3;
+  const rx = water.halfWidth - SURFACE_INSET_X;
+  const rz = water.halfDepth - SURFACE_INSET_Z;
+  return {
+    point: [
+      Math.sin(phase) * rx,
+      kind === "sailboat" ? 0.13 : 0.22,
+      Math.cos(phase) * rz,
+    ] as Point,
+    heading: Math.atan2(Math.cos(phase) * rx, -Math.sin(phase) * rz),
+    phase,
+  };
+}
+
 export function swimPose(
   mascot: LakeMascot,
   water: LakeLayout["water"],
   elapsedMs: number,
   reduced = false,
 ): { point: Point; heading: number; phase: number } {
-  const side = mascot === "ducks" ? 1 : -1;
-  const period = mascot === "ducks" ? 28_000 : 34_000;
-  const phase =
-    (reduced ? 0 : (((elapsedMs % period) + period) % period) / period) *
-      Math.PI *
-      2 +
-    (mascot === "ducks" ? 0.8 : 2.2);
-  const length = Math.min(2.1, water.halfDepth - 5.1);
+  const pose = surfacePose(mascot, water, elapsedMs, reduced);
   return {
+    ...pose,
     point: [
-      side * (water.halfWidth - SHORE_INSET) + Math.sin(phase) * LOOP_WIDTH,
-      0.22 + (reduced ? 0 : Math.sin(phase * 2) * 0.016),
-      Math.cos(phase) * length,
+      pose.point[0],
+      pose.point[1] + (reduced ? 0 : Math.sin(pose.phase * 2) * 0.016),
+      pose.point[2],
     ],
-    heading: Math.atan2(
-      Math.cos(phase) * LOOP_WIDTH,
-      -Math.sin(phase) * length,
-    ),
-    phase,
   };
 }
 
 export function inSwimmingArea(point: Point, water: LakeLayout["water"]) {
   return (
-    Math.abs(point[0]) >
-      water.halfWidth - SHORE_INSET - LOOP_WIDTH - SWIM_RADIUS - 0.25 &&
-    Math.abs(point[2]) <
-      Math.min(2.1, water.halfDepth - 5.1) + SWIM_RADIUS + 0.25
+    Math.abs(point[0]) <
+      water.halfWidth - SURFACE_INSET_X + SWIM_RADIUS + 0.25 &&
+    Math.abs(point[2]) < water.halfDepth - SURFACE_INSET_Z + SWIM_RADIUS + 0.25
   );
 }

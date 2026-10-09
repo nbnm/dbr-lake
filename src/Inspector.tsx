@@ -403,8 +403,8 @@ export default function Inspector({
               )}
               {a.route.evidence === "unknown" && (
                 <p className="unknown-route">
-                  No supported source or destination evidence. This task remains
-                  a neutral buoy.
+                  No supported source or destination evidence. This paper ship
+                  holds its position because the route is unresolved.
                 </p>
               )}
             </div>

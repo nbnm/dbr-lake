@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useContext, useEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import {
@@ -12,7 +12,8 @@ import {
 } from "three";
 import type { LakeLayout } from "../layout";
 import { sailboatPose } from "../landmarks";
-import { Label } from "./SceneLabel";
+import { LandmarkLink } from "./LandmarkLink";
+import { SceneTraffic } from "./SceneTraffic";
 
 const URL = "https://secondstack.ai/";
 
@@ -90,6 +91,7 @@ export function SecondStackSailboat({
   reduced: boolean;
 }) {
   const boat = useRef<Group>(null);
+  const traffic = useContext(SceneTraffic);
   const sourceTextures = useLoader(TextureLoader, [
     "/brands/secondstack-mark.svg",
     "/brands/secondstack.svg",
@@ -124,7 +126,9 @@ export function SecondStackSailboat({
   useFrame(({ clock }) => {
     if (!boat.current) return;
     const pose = sailboatPose(water, clock.elapsedTime * 1000, reduced);
-    boat.current.position.set(...pose.point);
+    const position = traffic?.current.get("ambient:sailboat");
+    if (position) boat.current.position.copy(position);
+    else boat.current.position.set(...pose.point);
     boat.current.rotation.set(0, pose.heading, pose.roll);
   });
   return (
@@ -215,18 +219,7 @@ export function SecondStackSailboat({
           depthWrite={false}
         />
       </mesh>
-      <Label persistent center position={[0, 4.45, 0]} zIndexRange={[18, 0]}>
-        <a
-          className="sailboat-accessible-link"
-          href={URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Visit SecondStack sailboat (opens in a new tab)"
-          onClick={(event) => event.stopPropagation()}
-        >
-          SecondStack ↗
-        </a>
-      </Label>
+      <LandmarkLink name="SecondStack" href={URL} point={[0, 4.45, 0]} />
     </group>
   );
 }

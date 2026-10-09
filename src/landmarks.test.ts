@@ -9,8 +9,8 @@ import {
 import { AIR_LEVELS, cruiseHeight } from "./navigation";
 import { buildSurroundings } from "./environment";
 import {
-  t1aBackdrop,
-  t1aBackdropBounds,
+  t1aShoreSign,
+  t1aShoreSignBounds,
   zeppelinBounds,
   zeppelinDimensions,
   zeppelinPose,
@@ -86,13 +86,16 @@ describe("Alchemist's ambient sky lane", () => {
 });
 
 describe("visible brand landmarks", () => {
-  it("raises T1A behind the far shore, above the trees, with a clear foundation", () => {
+  it("places T1A on the foreground shore with a low panel and a clear foundation", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
-      const sign = t1aBackdrop(lake.water);
-      expect(sign.point[2]).toBeLessThan(-lake.water.halfDepth - 3);
+      const sign = t1aShoreSign(lake.water);
+      expect(sign.point[2]).toBeGreaterThan(lake.water.halfDepth + 3);
       expect(Math.abs(sign.point[2])).toBeLessThan(lake.ground.halfDepth - 0.8);
-      expect(sign.point[1] + sign.centerY - sign.height / 2).toBeGreaterThan(3);
+      expect(sign.point[1] + sign.centerY - sign.height / 2).toBeGreaterThan(
+        0.3,
+      );
+      expect(sign.centerY - sign.height / 2).toBeLessThan(0.5);
       for (const tree of buildSurroundings(lake).trees)
         expect(
           Math.hypot(
@@ -103,7 +106,7 @@ describe("visible brand landmarks", () => {
     }
   });
 
-  it("frames the complete flight loop and the T1A sign in desktop and portrait overviews", () => {
+  it("frames the complete flight loop and the desktop T1A sign across viewport sizes", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
       for (const [width, height] of [
@@ -134,7 +137,7 @@ describe("visible brand landmarks", () => {
         camera.updateMatrixWorld();
         for (const bounds of [
           zeppelinBounds(lake.water),
-          t1aBackdropBounds(lake.water),
+          ...(width >= 600 ? [t1aShoreSignBounds(lake.water)] : []),
         ])
           for (const x of [bounds.min[0], bounds.max[0]])
             for (const y of [bounds.min[1], bounds.max[1]])

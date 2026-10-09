@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   ChevronDown,
   Compass,
-  Database,
   Globe2,
   Layers3,
   List,
@@ -599,6 +598,7 @@ export default function App() {
                           reduced={reduced}
                           eggs={eggs}
                           action={action}
+                          playing={playing}
                         />
                       )}
                     </Suspense>
@@ -767,10 +767,8 @@ export default function App() {
                                           ) : (
                                             <ArrowDownLeft size={17} />
                                           )
-                                        ) : a.kind === "ship" ? (
-                                          <Ship size={17} />
                                         ) : (
-                                          <Database size={16} />
+                                          <Ship size={17} />
                                         )}
                                       </span>
                                       <span>
