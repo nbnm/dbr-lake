@@ -7,8 +7,9 @@ from uuid import NAMESPACE_URL, uuid5
 from .models import Attempt, Estimate, Route, SceneEvent
 
 SIMULATED_RUNS = 84
-SIMULATION_VERSION = "workspace-overlay-v3"
+SIMULATION_VERSION = "workspace-overlay-v4"
 PROVENANCE = "workspace_simulation"
+SCHEDULE_VERSION = 'first-ten-hours-v1'
 
 
 def normalize_simulated_job_names(capture):
@@ -28,6 +29,104 @@ def captured_attempts(capture):
         if event['type'] == 'attempt.upsert':
             attempts[event['payload']['id']] = event['payload']
     return list(attempts.values())
+
+
+def frontload_activity(capture, *, capture_id=None):
+    """Schedule 80% of job starts before hour ten without altering real history.
+
+    Move entire landing/processing/export pipelines together so their durations
+    and dependencies survive. One pipeline may straddle hour ten to reach the
+    nearest whole-job count. Saved inputs remain immutable.
+    """
+    cp = capture['checkpoint']
+    start, end = cp['range']['start'], cp['range']['end']
+    if capture['mode'] != 'replay' or end - start != 86_400_000:
+        raise ValueError('A full 24-hour replay is required to schedule activity.')
+    attempts = captured_attempts(capture)
+    generated = [a for a in attempts if a.get('provenance') == PROVENANCE]
+    if not generated:
+        raise ValueError('The replay has no added activity to schedule.')
+    existing = cp.get('simulation', {}).get('schedule', {})
+    if existing.get('version') == SCHEDULE_VERSION and existing.get('total_runs') == len(attempts):
+        return deepcopy(capture)
+
+    cutoff = start + 36_000_000
+    real_early = sum(start <= a.get('started_at', -1) < cutoff
+                     for a in attempts if a.get('provenance') != PROVENANCE
+                     and a.get('started_at') is not None)
+    early_count = max(0, min(len(generated), round(len(attempts) * .8) - real_early))
+    batches = defaultdict(list)
+    for a in generated:
+        batches[a['id'].rsplit(':activity-run-', 1)[0]].append(a)
+    pipelines = []
+    for batch in batches.values():
+        pipeline = []
+        for a in sorted(batch, key=lambda a: int(a['run_id'].rsplit('-', 1)[1])):
+            if a['route']['external_source'] and pipeline:
+                pipelines.append(pipeline)
+                pipeline = []
+            pipeline.append(a)
+        if pipeline:
+            pipelines.append(pipeline)
+    pipelines.sort(key=lambda p: (p[0]['started_at'], p[0]['id']))
+    early, late, boundary = [], [], None
+    remaining = early_count
+    for pipeline in pipelines:
+        if remaining >= len(pipeline):
+            early.append(pipeline)
+            remaining -= len(pipeline)
+        elif remaining:
+            boundary = pipeline, remaining
+            remaining = 0
+        else:
+            late.append(pipeline)
+
+    shifts = {}
+    def move(pipeline, launched):
+        shift = launched - pipeline[0]['started_at']
+        shifts.update((a['id'], shift) for a in pipeline)
+
+    # Leave room for all phases in each band, including the final export.
+    lead = max((p[-1]['started_at'] - p[0]['started_at'] for p in early), default=0)
+    tail = max((p[-1]['ended_at'] - p[0]['started_at'] for p in late), default=0)
+    for band, lower, upper in [(early, start + 120_000, cutoff - lead - 60_000),
+                               (late, cutoff + 120_000, end - tail - 60_000)]:
+        for index, pipeline in enumerate(band):
+            move(pipeline, lower + (upper - lower) * index // max(1, len(band) - 1))
+    if boundary:
+        pipeline, split = boundary
+        before, after = pipeline[split - 1]['started_at'], pipeline[split]['started_at']
+        move(pipeline, cutoff - ((before + after) // 2 - pipeline[0]['started_at']))
+
+    output = deepcopy(capture)
+    def shift_attempt(a):
+        shift = shifts.get(a['id'])
+        if shift is None:
+            return
+        for key in ['started_at', 'ended_at', 'observed_at']:
+            if a.get(key) is not None:
+                a[key] += shift
+        if a['route'].get('observed_at') is not None:
+            a['route']['observed_at'] += shift
+
+    for a in output['checkpoint']['attempts']:
+        shift_attempt(a)
+    for event in output['events']:
+        if event['type'] == 'attempt.upsert' and event['payload']['id'] in shifts:
+            shift = shifts[event['payload']['id']]
+            event['event_time'] += shift
+            event['observed_at'] += shift
+            shift_attempt(event['payload'])
+    output['events'].sort(key=lambda e: (e['event_time'], e['event_id']))
+    for sequence, event in enumerate(output['events'], 1):
+        event['sequence'] = sequence
+    checkpoint = output['checkpoint']
+    checkpoint['capture_id'] = capture_id or uuid5(
+        NAMESPACE_URL, f"simlake:{cp['capture_id']}:{SCHEDULE_VERSION}").hex
+    checkpoint['simulation']['schedule'] = dict(version=SCHEDULE_VERSION,
+        early_hours=10, early_fraction=.8, early_runs=real_early + early_count,
+        total_runs=len(attempts))
+    return output
 
 
 def _table_key(table):
@@ -217,7 +316,7 @@ def build_simulation(capture, additional=False):
     pairs = _pipelines(cp, real_attempts)
     count = 80 if additional else SIMULATED_RUNS
     previous_count = len(all_attempts) - len(real_attempts)
-    version = 'workspace-additional-v2' if additional else SIMULATION_VERSION
+    version = 'workspace-additional-v3' if additional else SIMULATION_VERSION
     ident = uuid5(NAMESPACE_URL, f"simlake:{cp['capture_id']}:{version}").hex
     output = deepcopy(capture)
     checkpoint = output['checkpoint']
@@ -288,4 +387,4 @@ def build_simulation(capture, additional=False):
     if additional:
         checkpoint['simulation']['parent_capture_id'] = cp['capture_id']
     checkpoint['history_note'] = '24-hour activity replay using captured workspace catalogs and schemas.'
-    return output
+    return frontload_activity(output, capture_id=ident)

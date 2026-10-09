@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from backend.app import create_app
 from backend.models import Attempt, Estimate, LakeObject, Route, SceneEvent, Workspace
 from backend.replay_import import scene_at
-from backend.simulation import build_simulation, captured_attempts, PROVENANCE, SIMULATED_RUNS
+from backend.simulation import build_simulation, captured_attempts, frontload_activity, PROVENANCE, SIMULATED_RUNS
 
 START = 1_790_000_000_000
 END = START + 86_400_000
@@ -79,7 +79,8 @@ def test_overlay_preserves_real_identities_history_and_links_without_inventing_t
     assert {a['kind'] for a in simulated} == {'plane', 'ship'}
     assert len([a for a in simulated if a['route']['external_source']]) == 28
     assert len([a for a in simulated if a['route']['external_target']]) == 28
-    assert {(a['started_at'] - START) // 3_600_000 for a in simulated} == set(range(24))
+    assert sum(a['started_at'] < START + 36_000_000 for a in simulated) == 68
+    assert max(a['ended_at'] for a in simulated) >= END - 180_000
     assert any(len(a['route']['target_ids']) > 1 for a in simulated)
     assert build_simulation(source) == result
     early = scene_at(result, START + 180_000)
@@ -148,7 +149,14 @@ def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_
     assert first == before
     old = {a['id']: a for a in captured_attempts(first)}
     final = {a['id']: a for a in captured_attempts(result)}
-    assert all(final[ident] == attempt for ident, attempt in old.items())
+    for ident, attempt in old.items():
+        expected = deepcopy(attempt)
+        shift = final[ident]['observed_at'] - attempt['observed_at']
+        for key in ['started_at', 'ended_at', 'observed_at']:
+            if expected[key] is not None:
+                expected[key] += shift
+        expected['route']['observed_at'] += shift
+        assert final[ident] == expected
     added = [a for ident, a in final.items() if ident not in old]
     assert len(added) == 80
     known = {o['id'] for o in source['checkpoint']['objects']}
@@ -175,6 +183,74 @@ def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_
         assert client.get('/api/replay', params={'capture': first['checkpoint']['capture_id']}).json() == first
         assert client.get('/api/replay', params={'capture': 'real-capture'}).json() == source
         assert client.get('/api/configuration').json()['last_capture']['simulation']['added_runs'] == 164
+
+
+@pytest.mark.parametrize('additional_batches', [0, 1, 2])
+def test_frontloaded_starts_keep_pipeline_dependencies_durations_and_event_order(additional_batches):
+    source = real_capture()
+    # Three actual starts in the first ten hours and four later in the day.
+    source['checkpoint']['attempts'] = []
+    source['events'] = []
+    for index, hour in enumerate([6, 8, 9, 11, 12, 13, 14]):
+        a = deepcopy(real_capture()['events'][0]['payload'])
+        a.update(id=f'real-run-{index}', run_id=f'real-{index}',
+                 started_at=START + hour * 3_600_000,
+                 ended_at=START + hour * 3_600_000 + 120_000)
+        source['events'].append({**real_capture()['events'][0], 'event_id': f'real-event-{index}',
+            'execution_attempt_id': a['id'], 'event_time': a['ended_at'],
+            'sequence': index + 1, 'payload': a})
+    result = build_simulation(source)
+    for _ in range(additional_batches):
+        result = build_simulation(result, additional=True)
+    attempts = captured_attempts(result)
+    assert sum(START <= a['started_at'] < START + 36_000_000 for a in attempts) == round(len(attempts) * .8)
+    assert result['checkpoint']['simulation']['schedule']['early_runs'] == round(len(attempts) * .8)
+    assert [a for a in attempts if a['provenance'] != PROVENANCE] == captured_attempts(source)
+    assert len(attempts) == 91 + 80 * additional_batches
+    events = result['events']
+    assert [e['event_time'] for e in events] == sorted(e['event_time'] for e in events)
+    assert [e['sequence'] for e in events] == list(range(1, len(events) + 1))
+    generated = [a for a in attempts if a['provenance'] == PROVENANCE]
+    batches = {}
+    for a in generated:
+        assert START < a['started_at'] < a['ended_at'] < END
+        assert a['replay_duration_ms'] == a['ended_at'] - a['started_at']
+        phases = [e for e in events if e['execution_attempt_id'] == a['id']]
+        assert [e['payload']['phase'] for e in phases] == ['queued', 'running', 'succeeded']
+        assert [e['event_time'] for e in phases] == [a['started_at'] - 30_000, a['started_at'], a['ended_at']]
+        assert all(e['observed_at'] == e['event_time'] == e['payload']['observed_at'] for e in phases)
+        assert all(e['payload']['route']['observed_at'] == a['started_at'] for e in phases)
+        batches.setdefault(a['id'].rsplit(':activity-run-', 1)[0], []).append(a)
+    for batch in batches.values():
+        ordered = sorted(batch, key=lambda a: int(a['run_id'].rsplit('-', 1)[1]))
+        for index, a in enumerate(ordered):
+            if index % 3:
+                assert a['started_at'] == ordered[index - 1]['ended_at'] + 60_000
+
+
+def test_rescheduling_saved_activity_is_immutable_and_idempotent():
+    capture = build_simulation(build_simulation(real_capture()), additional=True)
+    # An older saved replay has no schedule metadata and must be migrated to a
+    # new capture even when its existing starts happen to match the target.
+    del capture['checkpoint']['simulation']['schedule']
+    before = deepcopy(capture)
+    result = frontload_activity(capture)
+    assert capture == before
+    assert result['checkpoint']['capture_id'] != capture['checkpoint']['capture_id']
+    assert result['checkpoint']['objects'] == capture['checkpoint']['objects']
+    assert result['checkpoint']['attempts'] == capture['checkpoint']['attempts']
+    assert result['checkpoint']['workspaces'] == capture['checkpoint']['workspaces']
+    assert frontload_activity(capture) == result
+    assert frontload_activity(result) == result
+    old = {a['id']: a for a in captured_attempts(capture)}
+    for a in captured_attempts(result):
+        expected = deepcopy(old[a['id']])
+        shift = a['observed_at'] - expected['observed_at']
+        for key in ['started_at', 'ended_at', 'observed_at']:
+            if expected[key] is not None:
+                expected[key] += shift
+        expected['route']['observed_at'] += shift
+        assert a == expected
 
 
 def test_saved_legacy_names_are_cleaned_across_replay_and_run_details_without_rewriting_history(tmp_path):
