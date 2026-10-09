@@ -26,9 +26,11 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 export default function Configuration({
   onClose,
   onLoaded,
+  captureId,
 }: {
   onClose: () => void;
   onLoaded: (replay: Replay) => void;
+  captureId?: string;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [connections, setConnections] = useState<ConnectionSettings[]>([]);
@@ -46,6 +48,8 @@ export default function Configuration({
     [error, setError] = useState<string | null>(null),
     [message, setMessage] = useState<string | null>(null);
   const [lastCapture, setLastCapture] = useState<number | null>(null);
+  const [lastCaptureId, setLastCaptureId] = useState<string | null>(null);
+  const [simulatedRuns, setSimulatedRuns] = useState(0);
   const savedConnection = connections.find((c) => c.id === selected);
   const credentialReady =
     savedConnection?.credential_configured ?? savedConnection?.token_configured;
@@ -57,12 +61,18 @@ export default function Configuration({
     let current = true;
     api<{
       connections: ConnectionSettings[];
-      last_capture: { captured_at: number } | null;
+      last_capture: {
+        captured_at: number;
+        capture_id: string;
+        simulation?: { added_runs: number };
+      } | null;
     }>("/api/configuration")
       .then((data) => {
         if (current) {
           setConnections(data.connections);
           setLastCapture(data.last_capture?.captured_at ?? null);
+          setLastCaptureId(data.last_capture?.capture_id ?? null);
+          setSimulatedRuns(data.last_capture?.simulation?.added_runs ?? 0);
           if (data.connections[0]) edit(data.connections[0]);
         }
       })
@@ -436,7 +446,7 @@ export default function Configuration({
           </div>
           <button
             className="primary-button"
-            disabled={!!busy || lastCapture === null}
+            disabled={!!busy || lastCapture === null || simulatedRuns > 0}
             onClick={() =>
               action("Adding simulated runs to the saved replay…", async () => {
                 onLoaded(
@@ -448,6 +458,36 @@ export default function Configuration({
           >
             <Plus size={15} />
             Add 84 simulated runs
+          </button>
+        </section>
+        <section className="config-import">
+          <div>
+            <h3>Add more activity to this replay</h3>
+            <p>
+              Keep all existing runs and add another 80 across the same captured
+              day, using real table identities and similar job names.
+            </p>
+          </div>
+          <button
+            className="primary-button"
+            disabled={!!busy || !lastCaptureId}
+            onClick={() =>
+              action("Adding another 80 simulated runs…", async () => {
+                const selectedCapture =
+                  captureId && captureId !== "demo-v5"
+                    ? captureId
+                    : lastCaptureId;
+                onLoaded(
+                  await api<Replay>(
+                    `/api/replay/simulate/more?capture=${encodeURIComponent(selectedCapture!)}`,
+                    { method: "POST" },
+                  ),
+                );
+                onClose();
+              })
+            }
+          >
+            <Plus size={15} /> Add another 80 simulated runs
           </button>
         </section>
         <button

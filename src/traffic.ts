@@ -7,6 +7,7 @@ import {
   SWIM_RADIUS,
   SURFACE_INSET_X,
   SURFACE_INSET_Z,
+  openWater,
 } from "./wildlife";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 
@@ -60,14 +61,9 @@ export function separateTraffic(
     const p = positions[i];
     const insetX = ordered[i].insetX ?? SHIP_SHORE_INSET;
     const insetZ = ordered[i].insetZ ?? 4.1;
-    p.x = Math.max(
-      -water.halfWidth + insetX,
-      Math.min(water.halfWidth - insetX, p.x),
-    );
-    p.z = Math.max(
-      -water.halfDepth + insetZ,
-      Math.min(water.halfDepth - insetZ, p.z),
-    );
+    const bounds = openWater(water, insetX, insetZ);
+    p.x = Math.max(bounds.minX, Math.min(bounds.maxX, p.x));
+    p.z = Math.max(bounds.minZ, Math.min(bounds.maxZ, p.z));
   };
   // At a bank, a radial push can be clipped before it clears the other hull.
   // Slide to the nearest feasible circle/shore-boundary intersection instead.
@@ -81,10 +77,7 @@ export function separateTraffic(
     if (Math.hypot(p.x - other.x, p.z - other.z) >= clearance) return;
     const ix = ordered[i].insetX ?? SHIP_SHORE_INSET;
     const iz = ordered[i].insetZ ?? 4.1;
-    const minX = -water.halfWidth + ix,
-      maxX = water.halfWidth - ix;
-    const minZ = -water.halfDepth + iz,
-      maxZ = water.halfDepth - iz;
+    const { minX, maxX, minZ, maxZ } = openWater(water, ix, iz);
     const radius = clearance + 0.001;
     const candidates: Vector3[] = [];
     for (const x of [minX, maxX]) {
@@ -110,7 +103,7 @@ export function separateTraffic(
       );
     if (feasible[0]) p.copy(feasible[0]);
   };
-  for (let pass = 0; pass < 8; pass++) {
+  for (let pass = 0; pass < 16; pass++) {
     const cells = new Map<string, number[]>();
     positions.forEach((p, i) => {
       const key = `${Math.floor(p.x / 2.5)}:${Math.floor(p.z / 2.5)}`;

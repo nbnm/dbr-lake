@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Vector3 } from "three";
-import { buildLakeLayout, lighthousePoint, antaresPoint } from "./layout";
+import {
+  buildLakeLayout,
+  lighthousePoint,
+  antaresPoint,
+  harborPoint,
+} from "./layout";
 import { buildNavigation, vesselKey } from "./navigation";
 import { makePath, positionAt } from "./motion";
 import { buildSurroundings } from "./environment";
@@ -103,26 +108,16 @@ describe("shore and countryside", () => {
       }));
       const layout = buildLakeLayout(inventory);
       for (const dock of layout.docks) {
-        for (const x of [
-          dock.center[0] - dock.width / 2,
-          dock.center[0],
-          dock.center[0] + dock.width / 2,
-        ]) {
-          expect(
-            insideLake(layout, x, dock.center[2] - dock.direction * 1.4),
-          ).toBe(false);
-          expect(
-            insideLake(layout, x, dock.center[2] - dock.direction * 0.2),
-          ).toBe(true);
+        for (const x of [-dock.width / 2, 0, dock.width / 2]) {
+          const dry = harborPoint(dock, x, -1.4),
+            wet = harborPoint(dock, x, -0.2);
+          expect(insideLake(layout, dry[0], dry[2])).toBe(false);
+          expect(insideLake(layout, wet[0], wet[2])).toBe(true);
         }
-        for (const pier of dock.piers)
-          expect(
-            insideLake(
-              layout,
-              pier.center[0],
-              pier.center[2] - pier.direction * 1.4,
-            ),
-          ).toBe(false);
+        for (const pier of dock.piers) {
+          const dry = harborPoint(pier, 0, -1.4);
+          expect(insideLake(layout, dry[0], dry[2])).toBe(false);
+        }
       }
       expect(
         insideLake(
@@ -162,11 +157,15 @@ describe("shore and countryside", () => {
         expect(
           Math.abs(x - a.center[0]) > 3.2 || Math.abs(z - a.center[2]) > 4.1,
         ).toBe(true);
-      for (const d of layout.docks)
+      for (const d of layout.docks) {
+        const dx = x - d.center[0],
+          dz = z - d.center[2];
+        const localX = dx * Math.cos(d.rotation) - dz * Math.sin(d.rotation);
+        const localZ = dx * Math.sin(d.rotation) + dz * Math.cos(d.rotation);
         expect(
-          Math.abs(x - d.center[0]) > d.width / 2 + 0.6 ||
-            Math.abs(z - d.center[2]) > 2,
+          Math.abs(localX) > d.width / 2 + 0.6 || Math.abs(localZ) > 2,
         ).toBe(true);
+      }
     }
     expect(
       buildSurroundings(
@@ -209,10 +208,19 @@ describe("ambient journeys across the lake", () => {
             [0, -radius],
           ])
             expect(insideLake(lake, p.x + x, p.z + z)).toBe(true);
-          for (const pier of lake.piers)
-            expect(Math.abs(p.z - pier.center[2])).toBeGreaterThan(
-              2.7 + radius,
-            );
+          for (const pier of lake.piers) {
+            const dx = p.x - pier.center[0],
+              dz = p.z - pier.center[2];
+            const localX =
+              dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+            const localZ =
+              dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
+            expect(
+              Math.abs(localX) > pier.width / 2 + radius ||
+                localZ > 2.3 + radius ||
+                localZ < -1.55 - radius,
+            ).toBe(true);
+          }
           // Models face their travel direction, including both turns.
           const next = new Vector3(...poseAt(at + 10).point)
             .sub(p)
@@ -324,6 +332,62 @@ describe("ambient journeys across the lake", () => {
 });
 
 describe("replay navigation", () => {
+  it("keeps ships and swimmers clear of the system dock's spine and every branch", () => {
+    const branches = Array.from({ length: 36 }, (_, i) => ({
+      ...tables[0],
+      id: `m:system.s${Math.floor(i / 3)}.t${i % 3}`,
+      catalog: "system",
+      schema_name: `s${Math.floor(i / 3)}`,
+      name: `t${i % 3}`,
+    }));
+    const jobs = [
+      [0, 32],
+      [9, 20],
+      [30, 5],
+    ].map(([source, target], i) => ({
+      ...task(`branch-ship-${i}`),
+      route: {
+        ...task(`branch-ship-${i}`).route,
+        source_ids: [branches[source].id],
+        target_ids: [branches[target].id],
+      },
+    }));
+    const lake = buildLakeLayout([...tables, ...branches], jobs);
+    const system = lake.docks.find((dock) => dock.catalog === "system")!;
+    const clear = (p: Vector3) => {
+      expect(insideLake(lake, p.x, p.z)).toBe(true);
+      const dx = p.x - system.center[0],
+        dz = p.z - system.center[2];
+      const x = dx * Math.cos(system.rotation) - dz * Math.sin(system.rotation);
+      const z = dx * Math.sin(system.rotation) + dz * Math.cos(system.rotation);
+      expect(Math.abs(x) > 1.7 || z < -1 || z > system.depth + 1).toBe(true);
+      for (const pier of lake.piers) {
+        const dx = p.x - pier.center[0],
+          dz = p.z - pier.center[2];
+        const x = dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+        const z = dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
+        expect(
+          Math.abs(x) > pier.width / 2 + 0.8 || z > 3.05 || z < -2.45,
+        ).toBe(true);
+      }
+    };
+    for (const job of jobs) {
+      const path = makePath(
+        job,
+        lake.objects,
+        lake.airports,
+        lake.piers,
+        undefined,
+        lake,
+      );
+      for (const point of path.curve.getSpacedPoints(240)) clear(point);
+      clear(path.to);
+    }
+    const period = surfaceLoopMs(lake.water);
+    for (let at = 0; at < period; at += period / 240)
+      for (const swimmer of ambientTraffic(lake.water, at, false, true))
+        clear(swimmer.position);
+  });
   it("reserves separate lanes and moorings for overlapping attempts, reusing them after the display window", () => {
     const first = task("first"),
       second = task("second"),
@@ -398,9 +462,14 @@ describe("replay navigation", () => {
         const { position: p } = positionAt({ ...a, ended_at: null }, path, t);
         expect(insideLake(layout, p.x, p.z)).toBe(true);
         for (const pier of layout.piers) {
-          const localZ = (p.z - pier.center[2]) * pier.direction;
+          const dx = p.x - pier.center[0],
+            dz = p.z - pier.center[2];
+          const localX =
+            dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+          const localZ =
+            dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
           expect(
-            Math.abs(p.x - pier.center[0]) > pier.width / 2 + 1 ||
+            Math.abs(localX) > pier.width / 2 + 1 ||
               localZ > 3.05 ||
               localZ < -2.45,
           ).toBe(true);

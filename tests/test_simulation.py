@@ -135,3 +135,39 @@ def test_overlay_rejects_demo_empty_jobs_and_a_partial_window():
     source['checkpoint']['range']['end'] = START + 3_600_000
     with pytest.raises(ValueError, match='24-hour'):
         build_simulation(source)
+
+
+def test_additional_batch_retains_the_first_84_runs_and_adds_exactly_80_on_real_tables(tmp_path):
+    source = real_capture()
+    first = build_simulation(source)
+    before = deepcopy(first)
+    result = build_simulation(first, additional=True)
+    assert first == before
+    old = {a['id']: a for a in captured_attempts(first)}
+    final = {a['id']: a for a in captured_attempts(result)}
+    assert all(final[ident] == attempt for ident, attempt in old.items())
+    added = [a for ident, a in final.items() if ident not in old]
+    assert len(added) == 80
+    known = {o['id'] for o in source['checkpoint']['objects']}
+    for a in added:
+        assert a['provenance'] == PROVENANCE and a['native_url'] is None
+        assert a['name'].startswith('Sigma Demo 2-sim-')
+        assert START < a['started_at'] < a['ended_at'] <= END
+        assert set(a['route']['source_ids'] + a['route']['target_ids']) <= known
+        Attempt.model_validate(a)
+    assert len({a['run_id'] for a in final.values()}) == 165
+    assert result['checkpoint']['simulation']['added_runs'] == 164
+    assert result['checkpoint']['simulation']['parent_capture_id'] == first['checkpoint']['capture_id']
+    assert result['checkpoint']['simulation']['source_capture_id'] == 'real-capture'
+    assert build_simulation(first, additional=True) == result
+    with TestClient(create_app(str(tmp_path / 'demo.sqlite')), base_url='http://localhost', client=('127.0.0.1', 1)) as client:
+        client.app.state.repository.save_capture(source)
+        client.app.state.repository.save_capture(first)
+        assert client.post('/api/replay/simulate/more').status_code == 400
+        request = {'capture': first['checkpoint']['capture_id']}
+        assert client.post('/api/replay/simulate/more', params=request).json() == result
+        assert client.post('/api/replay/simulate/more', params=request).json() == result
+        assert client.get('/api/replay').json() == result
+        assert client.get('/api/replay', params={'capture': first['checkpoint']['capture_id']}).json() == first
+        assert client.get('/api/replay', params={'capture': 'real-capture'}).json() == source
+        assert client.get('/api/configuration').json()['last_capture']['simulation']['added_runs'] == 164

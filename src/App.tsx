@@ -1065,6 +1065,7 @@ export default function App() {
         <Configuration
           onClose={() => setConfiguration(false)}
           onLoaded={loadCapture}
+          captureId={replay?.checkpoint.capture_id}
         />
       )}
     </div>

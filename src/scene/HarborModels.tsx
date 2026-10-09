@@ -81,7 +81,7 @@ export function Dock({
     <>
       <group
         position={dock.center}
-        rotation={[0, dock.direction === 1 ? 0 : Math.PI, 0]}
+        rotation={[0, dock.rotation, 0]}
         onClick={(e) => {
           e.stopPropagation();
           onSelect({ type: "catalog", id: dock.id });
@@ -89,6 +89,24 @@ export function Dock({
         onPointerOver={hover}
         onPointerOut={unhover}
       >
+        {dock.branching && (
+          <>
+            <RoundedBox
+              args={[1.8, 0.22, dock.depth + 1]}
+              radius={0.05}
+              smoothness={1}
+              position={[0, 0.12, dock.depth / 2 - 0.2]}
+            >
+              <meshStandardMaterial color="#b89b6f" />
+            </RoundedBox>
+            {Array.from({ length: Math.ceil(dock.depth / 0.3) }, (_, i) => (
+              <mesh key={i} position={[0, 0.235, i * 0.3]}>
+                <boxGeometry args={[1.75, 0.01, 0.018]} />
+                <meshStandardMaterial color="#927e5a" />
+              </mesh>
+            ))}
+          </>
+        )}
         <RoundedBox
           args={[dock.width + 0.6, 0.3, 1.35]}
           radius={0.1}
@@ -127,9 +145,7 @@ export function Dock({
           >
             <span>Catalog dock</span>
             <strong>{dock.catalog}</strong>
-            <small>
-              {dock.piers.length} schemas
-            </small>
+            <small>{dock.piers.length} schemas</small>
           </button>
         </Label>
       </group>
@@ -163,7 +179,7 @@ export function Pier({
   return (
     <group
       position={dock.center}
-      rotation={[0, dock.direction === 1 ? 0 : Math.PI, 0]}
+      rotation={[0, dock.rotation, 0]}
       onClick={(e) => {
         e.stopPropagation();
         onSelect({ type: "schema", id: dock.id });
@@ -177,7 +193,7 @@ export function Pier({
         smoothness={2}
         position={[0, -0.06, -0.5]}
       >
-        <meshStandardMaterial color="#c5cfae" />
+        <meshStandardMaterial color={dock.branching ? "#b89b6f" : "#c5cfae"} />
       </RoundedBox>
       <RoundedBox
         args={[w + 0.2, 0.16, 0.72]}
@@ -231,7 +247,9 @@ export function Pier({
         <boxGeometry args={[0.018, 0.32, 0.015]} />
         <meshStandardMaterial color="#7f7557" />
       </mesh>
-      <Tree position={[w / 2 - 0.2, 0.1, -0.9]} scale={0.65} />
+      {!dock.branching && (
+        <Tree position={[w / 2 - 0.2, 0.1, -0.9]} scale={0.65} />
+      )}
       <Line
         points={[
           [-w / 2, 0.41, 0.8],
@@ -386,9 +404,7 @@ export function Airport({
         >
           <span>{exporting ? "Export destination" : "External source"}</span>
           <strong>{airport.name}</strong>
-          <small>
-            {exporting ? "Export airport" : "Source airport"}
-          </small>
+          <small>{exporting ? "Export airport" : "Source airport"}</small>
         </button>
       </Label>
     </group>

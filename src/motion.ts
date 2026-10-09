@@ -14,7 +14,7 @@ import {
   type PierLayout,
 } from "./layout";
 import { cruiseHeight, PORT_ROW_SPACING, vesselKey } from "./navigation";
-import { BUOY_SHORE_INSET, SHIP_SHORE_INSET } from "./wildlife";
+import { BUOY_SHORE_INSET, SHIP_SHORE_INSET, openWater } from "./wildlife";
 import { externalAirportName, flightTableIds, isExport } from "./vessels";
 
 function roundedPath(points: Vector3[]) {
@@ -68,8 +68,13 @@ export function makePath(
   const port = (o: LakeObject, pier?: PierLayout) => {
     const p = new Vector3(...o.position).setY(height);
     if (pier)
-      p.z +=
-        pier.direction * (1.2 + (slot?.ports[o.id] ?? 0) * PORT_ROW_SPACING);
+      p.add(
+        new Vector3(
+          Math.sin(pier.rotation),
+          0,
+          Math.cos(pier.rotation),
+        ).multiplyScalar(1.2 + (slot?.ports[o.id] ?? 0) * PORT_ROW_SPACING),
+      );
     return p;
   };
   const to = target ? port(target, targetDock) : new Vector3(2, height, 0);
@@ -97,7 +102,11 @@ export function makePath(
   // The generic fallback offset could otherwise push their launch into shore lanes.
   if (!layout && from.distanceTo(to) < 0.1) from.add(new Vector3(-2, 0, -1));
   const dir = targetDock
-    ? new Vector3(0, 0, -targetDock.direction)
+    ? new Vector3(
+        -Math.sin(targetDock.rotation),
+        0,
+        -Math.cos(targetDock.rotation),
+      )
     : to.clone().sub(from).setY(0).normalize();
   const side = new Vector3(-dir.z, 0, dir.x);
   const end = to.clone().addScaledVector(dir, -1.6);
@@ -108,18 +117,18 @@ export function makePath(
     .addScaledVector(side, 1.5);
   let curve: Curve<Vector3>;
   if (a.kind === "buoy" && layout) {
-    const columns = Math.max(
-      1,
-      Math.floor((layout.water.halfWidth * 2 - BUOY_SHORE_INSET * 2) / 2.6),
-    );
+    const bounds = openWater(layout.water, BUOY_SHORE_INSET, BUOY_SHORE_INSET);
+    const columns = Math.max(1, Math.floor((bounds.maxX - bounds.minX) / 2.6));
     from.set(
-      ((lane % columns) -
-        (Math.min(columns, layout.navigation.lanes.buoy) - 1) / 2) *
-        2.6,
+      (bounds.minX + bounds.maxX) / 2 +
+        ((lane % columns) -
+          (Math.min(columns, layout.navigation.lanes.buoy) - 1) / 2) *
+          2.6,
       height,
-      (Math.floor(lane / columns) -
-        (Math.ceil(layout.navigation.lanes.buoy / columns) - 1) / 2) *
-        2.6,
+      (bounds.minZ + bounds.maxZ) / 2 +
+        (Math.floor(lane / columns) -
+          (Math.ceil(layout.navigation.lanes.buoy / columns) - 1) / 2) *
+          2.6,
     );
     to.copy(from);
     end.copy(from);
@@ -161,30 +170,56 @@ export function makePath(
     }
   } else if (sourceDock && targetDock && layout && a.kind === "ship") {
     // Every ship clears the fingers before turning onto its reserved water lane.
-    const laneZ = (lane - (layout.navigation.lanes.ship - 1) / 2) * 1.8;
+    const bounds = openWater(layout.water, SHIP_SHORE_INSET, 4.1);
+    const laneZ =
+      (bounds.minZ + bounds.maxZ) / 2 +
+      (lane - (layout.navigation.lanes.ship - 1) / 2) * 1.8;
     const exit = from
       .clone()
-      .add(new Vector3(0, 0, sourceDock.direction * 1.6));
-    const sx = from.x,
-      tx = to.x;
+      .add(
+        new Vector3(
+          Math.sin(sourceDock.rotation),
+          0,
+          Math.cos(sourceDock.rotation),
+        ).multiplyScalar(1.6),
+      );
+    const gate = (p: Vector3, pier: PierLayout) => {
+      const x = Math.max(bounds.minX, Math.min(bounds.maxX, p.x));
+      const z = Math.max(bounds.minZ, Math.min(bounds.maxZ, p.z));
+      // Clear the entire bank before turning across its promenade or branches.
+      return pier.bank === "north" || pier.bank === "south"
+        ? [new Vector3(p.x, height, z), new Vector3(x, height, z)]
+        : [new Vector3(x, height, p.z), new Vector3(x, height, z)];
+    };
+    const sourceGates = gate(exit, sourceDock),
+      targetGates = gate(approach, targetDock);
+    const sx = sourceGates[1].x,
+      tx = targetGates[1].x;
     const turnX =
       Math.abs(sx - tx) < 1
-        ? Math.max(
-            -layout.water.halfWidth + SHIP_SHORE_INSET,
-            Math.min(layout.water.halfWidth - SHIP_SHORE_INSET, sx + 2.6),
-          )
+        ? Math.max(bounds.minX, Math.min(bounds.maxX, sx + 2.6))
         : sx;
     curve = roundedPath([
       from,
       exit,
+      ...sourceGates,
       new Vector3(turnX, height, laneZ),
       new Vector3(tx, height, laneZ),
+      ...targetGates.reverse(),
       approach,
       end,
     ]);
   } else {
     if (sourceDock && a.kind !== "plane")
-      takeoff.copy(from).add(new Vector3(0, 0, sourceDock.direction * 2.2));
+      takeoff
+        .copy(from)
+        .add(
+          new Vector3(
+            Math.sin(sourceDock.rotation),
+            0,
+            Math.cos(sourceDock.rotation),
+          ).multiplyScalar(2.2),
+        );
     if (airport) {
       end.y = 2.2;
       takeoff.y = cruiseHeight(lane);

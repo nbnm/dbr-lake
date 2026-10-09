@@ -1,7 +1,7 @@
 import { useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Group, Mesh, ShaderMaterial } from "three";
-import type { LakeLayout, Point } from "../layout";
+import { inHarbor, type LakeLayout, type Point } from "../layout";
 import { Countryside } from "./Countryside";
 import { lakeOutline } from "../shoreline";
 import { inSwimmingArea } from "../wildlife";
@@ -169,14 +169,7 @@ export function LakeSurface({
             0.085,
             Math.cos(i * 1.71) * d * 0.82,
           ] as Point,
-      ).filter(
-        (p) =>
-          !layout.docks.some(
-            (dock) =>
-              Math.abs(p[0] - dock.center[0]) < dock.width / 2 + 0.4 &&
-              Math.abs(p[2] - dock.center[2]) < 2.5,
-          ),
-      ),
+      ).filter((p) => !layout.docks.some((dock) => inHarbor(p, dock, 0.6))),
     [layout, w, d],
   );
   const patches = useMemo(
@@ -191,9 +184,10 @@ export function LakeSurface({
       }).filter(
         (point) =>
           !inSwimmingArea(point, layout.water) &&
-          !inSailingArea(point, layout.water),
+          !inSailingArea(point, layout.water) &&
+          !layout.docks.some((dock) => inHarbor(point, dock, 1.3)),
       ),
-    [w, d],
+    [w, d, layout],
   );
   return (
     <group>

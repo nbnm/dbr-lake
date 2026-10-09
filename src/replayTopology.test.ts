@@ -187,9 +187,12 @@ describe("used catalog and schema rendering", () => {
     expect(lake.objects).toHaveLength(0);
     expect(Object.keys(lake.navigation.slots)).toHaveLength(1);
     expect(
-      [...Object.values(lake.water), ...Object.values(lake.ground)].every(
-        Number.isFinite,
-      ),
+      [
+        lake.water.halfWidth,
+        lake.water.halfDepth,
+        ...Object.values(lake.water.harborDepth ?? {}),
+        ...Object.values(lake.ground),
+      ].every(Number.isFinite),
     ).toBe(true);
   });
 });

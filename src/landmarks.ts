@@ -4,7 +4,7 @@ import { surfacePose, SURFACE_INSET_X, SURFACE_INSET_Z } from "./wildlife";
 export const SAILBOAT_RADIUS = 1.8;
 
 export function canadianFlag(water: LakeLayout["water"]) {
-  const width = Math.max(4.8, Math.min(14, water.halfWidth * 0.17));
+  const width = Math.max(4.8, Math.min(14, water.halfWidth * 0.17)) * 0.7;
   return {
     point: [water.halfWidth + 2.4, 0.1, -water.halfDepth - 2.8] as Point,
     width,

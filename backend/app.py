@@ -90,7 +90,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
     def configuration(request: Request):
         saved = request.app.state.repository.capture()
         return {'connections': request.app.state.repository.list(), 'replay_hours': 24, 'realtime_enabled': False,
-                'last_capture': {k: saved['checkpoint'][k] for k in ('capture_id', 'captured_at', 'range')} if saved else None}
+                'last_capture': {**{k: saved['checkpoint'][k] for k in ('capture_id', 'captured_at', 'range')},
+                                 'simulation': saved['checkpoint'].get('simulation')} if saved else None}
 
     @app.post('/api/configuration')
     def save_connection(settings: ConnectionInput, request: Request):
@@ -137,8 +138,12 @@ def create_app(db_path: str | None = None) -> FastAPI:
             request.app.state.import_lock.release()
 
     @app.post('/api/replay/simulate')
+    @app.post('/api/replay/simulate/more')
     def simulate_replay(request: Request, capture: str | None = None):
         from .simulation import build_simulation
+        additional = request.url.path.endswith('/more')
+        if additional and not capture:
+            raise HTTPException(400, 'Select a saved capture to add another 80 simulated runs.')
         if not request.app.state.import_lock.acquire(blocking=False):
             raise HTTPException(409, 'A replay import or simulation is already running.')
         try:
@@ -146,11 +151,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
             source = repo.capture(capture)
             if source is None:
                 raise ValueError('Import a real workspace replay before adding simulated runs.')
-            if source['checkpoint'].get('simulation'):
+            if source['checkpoint'].get('simulation') and not additional:
                 source = repo.capture(source['checkpoint']['simulation']['source_capture_id'])
                 if source is None:
                     raise ValueError('The source workspace capture is unavailable. Import it again.')
-            result = build_simulation(source)
+            result = build_simulation(source, additional=additional)
             existing = repo.capture(result['checkpoint']['capture_id'])
             if existing:
                 repo.activate_capture(existing['checkpoint']['capture_id'])

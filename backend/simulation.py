@@ -118,15 +118,19 @@ def _job_name(template, serial, kind):
     return f'{base}-sim-{serial:02}-{suffix}'
 
 
-def build_simulation(capture):
+def build_simulation(capture, additional=False):
     cp = capture['checkpoint']
-    if capture['mode'] != 'replay' or cp.get('simulation'):
+    if capture['mode'] != 'replay' or cp.get('simulation') and not additional:
         raise ValueError('Select an imported workspace capture for the simulation.')
-    real_attempts = captured_attempts(capture)
+    all_attempts = captured_attempts(capture)
+    real_attempts = [a for a in all_attempts if a.get('provenance') != PROVENANCE]
     if not real_attempts:
         raise ValueError('The saved replay has no real job runs to use as naming references.')
     pairs = _pipelines(cp, real_attempts)
-    ident = uuid5(NAMESPACE_URL, f"simlake:{cp['capture_id']}:{SIMULATION_VERSION}").hex
+    count = 80 if additional else SIMULATED_RUNS
+    previous_count = len(all_attempts) - len(real_attempts)
+    version = 'workspace-additional-v1' if additional else SIMULATION_VERSION
+    ident = uuid5(NAMESPACE_URL, f"simlake:{cp['capture_id']}:{version}").hex
     output = deepcopy(capture)
     checkpoint = output['checkpoint']
     start, end = cp['range']['start'], cp['range']['end']
@@ -137,13 +141,15 @@ def build_simulation(capture):
     for a in sorted(real_attempts, key=lambda a: a['id']):
         templates[a['workspace_id']][a['job_id']] = a['name']
     envelopes = output['events']
-    for pipeline in range(SIMULATED_RUNS // 3):
-        source, target, ws = pairs[pipeline % len(pairs)]
+    pipelines = (count + 2) // 3
+    for pipeline in range(pipelines):
+        choice = pipeline + previous_count // 3
+        source, target, ws = pairs[choice % len(pairs)]
         names = list(templates[ws].values())
-        template = names[pipeline % len(names)]
+        template = names[choice % len(names)]
         # Each pipeline has landing, transformation and export runs. Stagger
         # their starts across the captured day and finish within its bounds.
-        landing_start = start + 120_000 + pipeline * span // (SIMULATED_RUNS // 3)
+        landing_start = start + (1_020_000 if additional else 120_000) + pipeline * span // pipelines
         landing_end = landing_start + 600_000 + (pipeline % 3) * 60_000
         transfer_start = landing_end + 60_000
         transfer_end = transfer_start + 1_080_000 + (pipeline % 4) * 60_000
@@ -165,7 +171,9 @@ def build_simulation(capture):
             ('export', 'plane', export_start, export_end, [target['id']], [], None, destination),
         ]
         for offset, (kind, vessel, launched, finished, sources, targets, external_source, external_target) in enumerate(definitions):
-            serial = pipeline * 3 + offset + 1
+            serial = previous_count + pipeline * 3 + offset + 1
+            if serial > previous_count + count:
+                break
             run_id = f'sim-run-{serial:03}'
             attempt_id = f'{ident}:{run_id}'
             route_id = f'simulation:{ident}:route:{serial}'
@@ -191,9 +199,14 @@ def build_simulation(capture):
     for sequence, e in enumerate(envelopes, 1):
         e['sequence'] = sequence
     checkpoint['capture_id'] = ident
-    checkpoint['simulation'] = {'added_runs': SIMULATED_RUNS, 'source_capture_id': cp['capture_id'],
-                                'version': SIMULATION_VERSION}
-    checkpoint['history_note'] = (f'{len(real_attempts)} imported real runs plus {SIMULATED_RUNS} simulated runs. '
+    source_id = cp.get('simulation', {}).get('source_capture_id', cp['capture_id'])
+    checkpoint['simulation'] = {'added_runs': previous_count + count, 'source_capture_id': source_id,
+                                'version': version}
+    if additional:
+        checkpoint['simulation']['parent_capture_id'] = cp['capture_id']
+    original_note = cp.get('history_note', '').split(
+        'Simulated runs use actual captured table identities; their routes, times and results are invented. ', 1)[-1]
+    checkpoint['history_note'] = (f'{len(real_attempts)} imported real runs plus {previous_count + count} simulated runs. '
         'Simulated runs use actual captured table identities; their routes, times and results are invented. '
-        + cp.get('history_note', ''))
+        + original_note)
     return output

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Attempt, LakeObject } from "./types";
-import { buildLakeLayout, cameraFit, schemaId } from "./layout";
+import { buildLakeLayout, cameraFit, schemaId, harborPoint } from "./layout";
 import { makePath, positionAt } from "./motion";
 
 function inventory(schemas: number, tables = 3): LakeObject[] {
@@ -112,20 +112,25 @@ describe("inventory-driven harbor", () => {
     expect(lake.docks).toHaveLength(108);
     expect(lake.water.halfWidth / lake.water.halfDepth).toBeLessThan(2.5);
     for (const dock of lake.docks) {
-      expect(Math.abs(dock.center[2])).toBeCloseTo(lake.water.halfDepth - 0.55);
+      const horizontal = dock.bank === "north" || dock.bank === "south";
+      expect(Math.abs(dock.center[horizontal ? 2 : 0])).toBeCloseTo(
+        (horizontal ? lake.water.halfDepth : lake.water.halfWidth) - 0.55,
+      );
     }
   });
   it("packs docks without overlap and keeps every berth inside the lake", () => {
     for (const n of [1, 2, 6, 7, 30, 100]) {
       const layout = buildLakeLayout(inventory(n, 8));
       for (const dock of layout.docks) {
-        expect(Math.abs(dock.center[0]) + dock.width / 2).toBeLessThan(
-          layout.water.halfWidth,
+        const horizontal = dock.bank === "north" || dock.bank === "south";
+        const along = horizontal ? 0 : 2;
+        expect(Math.abs(dock.center[along]) + dock.width / 2).toBeLessThan(
+          horizontal ? layout.water.halfWidth : layout.water.halfDepth,
         );
         for (const other of layout.docks.filter((d) => d.id !== dock.id))
           expect(
-            Math.abs(other.center[2] - dock.center[2]) > 4 ||
-              Math.abs(other.center[0] - dock.center[0]) >
+            other.bank !== dock.bank ||
+              Math.abs(other.center[along] - dock.center[along]) >
                 (other.width + dock.width) / 2 + 1,
           ).toBe(true);
       }
@@ -219,7 +224,7 @@ describe("inventory-driven harbor", () => {
   });
   it("places south-bank table identities at the matching rotated berth", () => {
     const layout = buildLakeLayout(inventory(6));
-    const dock = layout.piers.find((d) => d.direction === -1)!;
+    const dock = layout.piers.find((d) => d.bank === "south")!;
     const first = layout.objects.find((o) => o.id === dock.objects[0].id)!;
     expect(first.position[0]).toBeGreaterThan(dock.center[0]);
     expect(first.position[2]).toBeLessThan(dock.center[2]);
@@ -236,6 +241,24 @@ describe("inventory-driven harbor", () => {
     expect(path.curve.getTangentAt(0).z).toBeLessThan(0);
     expect(path.end.z).toBeLessThan(path.to.z);
     expect(path.curve.getTangentAt(1).z).toBeGreaterThan(0);
+  });
+  it("distributes catalogs on all four shores and connects a compact system dock to every schema branch", () => {
+    const spread = buildLakeLayout(inventory(10));
+    expect(new Set(spread.docks.map((d) => d.bank)).size).toBe(4);
+    const tables = inventory(12).map((o) => ({ ...o, catalog: "system" }));
+    const lake = buildLakeLayout(tables);
+    const dock = lake.docks[0];
+    expect(dock.branching).toBe(true);
+    expect(dock.width).toBeLessThan((12 * 6.4) / 4);
+    expect(dock.piers).toHaveLength(12);
+    expect(lake.objects).toHaveLength(tables.length);
+    for (const pier of dock.piers) {
+      const attachment = harborPoint(pier, 0, -1.4);
+      // Every branch overlaps the continuous central walkway.
+      expect(Math.abs(attachment[0] - dock.center[0])).toBeLessThan(0.9);
+      expect(attachment[2]).toBeGreaterThan(dock.center[2]);
+      expect(attachment[2]).toBeLessThan(dock.center[2] + dock.depth);
+    }
   });
   it("adds shoreline space for multiple airports without overlapping aprons", () => {
     const tables = inventory(1, 1);

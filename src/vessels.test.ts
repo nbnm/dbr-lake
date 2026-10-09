@@ -219,13 +219,15 @@ describe("landing flights", () => {
         path,
         120000,
       );
-      expect(landed.position.x).toBe(target.position[0]);
       const pier = layout.piers.find((p) =>
         p.objects.some((o) => o.id === target.id),
       )!;
       // Park in the water just beyond the timber finger, leaving hull clearance.
+      expect(landed.position.x).toBeCloseTo(
+        target.position[0] + Math.sin(pier.rotation) * 1.2,
+      );
       expect(landed.position.z).toBeCloseTo(
-        target.position[2] + pier.direction * 1.2,
+        target.position[2] + Math.cos(pier.rotation) * 1.2,
       );
       expect(
         positionAt(

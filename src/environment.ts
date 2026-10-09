@@ -1,6 +1,7 @@
 import {
   antaresPoint,
   lighthousePoint,
+  inHarbor,
   type LakeLayout,
   type Point,
 } from "./layout";
@@ -110,6 +111,7 @@ export function buildSurroundings(layout: LakeLayout) {
       )
         continue;
       if (
+        layout.docks.some(dock => inHarbor([px, 0, pz], dock, 0.8)) ||
         landmarks.some(
           (tower) => Math.hypot(px - tower[0], pz - tower[2]) < 2.2,
         ) ||
