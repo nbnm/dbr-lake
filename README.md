@@ -20,6 +20,8 @@ _Recorded from the running app with explicitly simulated metadata and 60× playb
 
 React, TypeScript, Three.js, and React Three Fiber render the scene. A Python FastAPI backend reads Databricks system tables through SQL Statement Execution and saves fixed captures in local SQLite. A visibly labeled simulated capture makes the app usable before a workspace is connected.
 
+A tall Canadian flagpole stands on the shore beside the lighthouse. Its locally bundled [official flag artwork](https://www.canada.ca/en/canadian-heritage/services/flag-canada-description.html) faces the camera and flutters gently, including during paused replay. The flag remains visible with captions and lake mascots hidden; reduced motion keeps it unfurled and still.
+
 Choose **Configure replay → Simulate 80 job runs · 24 hours**, or open [the simulated lake](http://127.0.0.1:8001/?capture=demo-v5). Its fixed day contains 25 ingestion runs (including API landings), 23 outbound exports, 29 table-to-table transfers, and 3 processing runs. Runs start in every hour with staggered, overlapping durations. API arrivals feed transformations, then exports follow their completed inputs. One payment repair adds a separate execution attempt to its parent run: 80 job runs, 81 attempts. All demo data is invented, and loading the demo preserves the saved workspace capture. The default 60× speed plays the full day in 24 minutes.
 
 ## Run locally

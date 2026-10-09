@@ -3,6 +3,30 @@ import { surfacePose, SURFACE_INSET_X, SURFACE_INSET_Z } from "./wildlife";
 
 export const SAILBOAT_RADIUS = 1.8;
 
+export function canadianFlag(water: LakeLayout["water"]) {
+  const width = Math.max(4.8, Math.min(14, water.halfWidth * 0.17));
+  return {
+    point: [-water.halfWidth - 2.4, 0.1, water.halfDepth + 2.8] as Point,
+    width,
+    height: width / 2,
+    poleHeight: Math.max(12, width * 1.6 + 1),
+  };
+}
+
+export function canadianFlagBounds(water: LakeLayout["water"]) {
+  const { point, width, poleHeight } = canadianFlag(water);
+  // Allow the unfurled cloth to face every camera yaw and ripple in the breeze.
+  const reach = width * 1.1;
+  return {
+    min: [point[0] - reach, 0, point[2] - reach] as Point,
+    max: [
+      point[0] + reach,
+      point[1] + poleHeight + 0.3,
+      point[2] + reach,
+    ] as Point,
+  };
+}
+
 export function sailboatPose(
   water: LakeLayout["water"],
   elapsedMs: number,

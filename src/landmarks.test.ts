@@ -9,6 +9,8 @@ import {
 import { AIR_LEVELS, cruiseHeight } from "./navigation";
 import { buildSurroundings } from "./environment";
 import {
+  canadianFlag,
+  canadianFlagBounds,
   t1aShoreSign,
   t1aShoreSignBounds,
   zeppelinBounds,
@@ -86,7 +88,7 @@ describe("Alchemist's ambient sky lane", () => {
 });
 
 describe("visible brand landmarks", () => {
-  it("places T1A on the foreground shore with a low panel and a clear foundation", () => {
+  it("keeps the T1A sign and flagpole on the foreground shore with clear foundations", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
       const sign = t1aShoreSign(lake.water);
@@ -96,17 +98,21 @@ describe("visible brand landmarks", () => {
         0.3,
       );
       expect(sign.centerY - sign.height / 2).toBeLessThan(0.5);
+      const flag = canadianFlag(lake.water);
+      expect(flag.point[0]).toBeLessThan(-lake.water.halfWidth);
+      expect(flag.point[2]).toBeGreaterThan(lake.water.halfDepth);
+      expect(Math.abs(flag.point[0])).toBeLessThan(lake.ground.halfWidth - 1);
+      expect(flag.point[2]).toBeLessThan(lake.ground.halfDepth - 1);
+      expect(flag.poleHeight - flag.height - 0.25).toBeGreaterThan(5);
       for (const tree of buildSurroundings(lake).trees)
-        expect(
-          Math.hypot(
-            tree.point[0] - sign.point[0],
-            tree.point[2] - sign.point[2],
-          ),
-        ).toBeGreaterThan(2.2);
+        for (const point of [sign.point, flag.point])
+          expect(
+            Math.hypot(tree.point[0] - point[0], tree.point[2] - point[2]),
+          ).toBeGreaterThan(2.2);
     }
   });
 
-  it("frames the complete flight loop and the desktop T1A sign across viewport sizes", () => {
+  it("frames the flag, complete flight loop and desktop T1A sign across viewport sizes", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
       for (const [width, height] of [
@@ -137,6 +143,7 @@ describe("visible brand landmarks", () => {
         camera.updateMatrixWorld();
         for (const bounds of [
           zeppelinBounds(lake.water),
+          canadianFlagBounds(lake.water),
           ...(width >= 600 ? [t1aShoreSignBounds(lake.water)] : []),
         ])
           for (const x of [bounds.min[0], bounds.max[0]])
