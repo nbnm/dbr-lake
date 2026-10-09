@@ -12,9 +12,10 @@ import { Group, Mesh, OrthographicCamera, Vector3 } from "three";
 import type { OrbitControls as Controls } from "three-stdlib";
 import type { Attempt, Selection } from "./types";
 import type { LakeLayout, Point } from "./layout";
-import { cameraFit, lighthousePoint } from "./layout";
+import { CAMERA_OFFSET, cameraFit, lighthousePoint } from "./layout";
 import { isOverdue } from "./state";
-import { makePath, positionAt } from "./motion";
+import { makePath, positionAt, type MotionPath } from "./motion";
+import { separateTraffic } from "./traffic";
 import { duckVisible } from "./ducks";
 import { Label, LabelPortal } from "./scene/SceneLabel";
 import { Dock, Airport } from "./scene/HarborModels";
@@ -57,7 +58,9 @@ function CameraRig({
       2,
       (layout.bounds.min[2] + layout.bounds.max[2]) / 2,
     );
-    c.position.copy(target).add(new Vector3(22, 26, 28).multiplyScalar(scale));
+    c.position
+      .copy(target)
+      .add(new Vector3(...CAMERA_OFFSET).multiplyScalar(scale));
     c.lookAt(target);
     c.zoom = fit;
     c.far = Math.max(200, 160 * scale);
@@ -115,6 +118,9 @@ function Vessel({
   selected,
   reduced,
   onSelect,
+  path,
+  traffic,
+  instanceKey,
 }: {
   attempt: Attempt;
   destinationId?: string;
@@ -123,16 +129,14 @@ function Vessel({
   selected: boolean;
   reduced: boolean;
   onSelect: (s: Selection) => void;
+  path: MotionPath;
+  traffic: RefObject<Map<string, Vector3>>;
+  instanceKey: string;
 }) {
   const group = useRef<Group>(null),
     paper = useRef<Group>(null),
     shadow = useRef<Mesh>(null),
     wake = useRef<Group>(null);
-  const path = useMemo(
-    () =>
-      makePath(a, layout.objects, layout.airports, layout.piers, destinationId),
-    [a.route.version, layout, destinationId],
-  );
   const landing = layout.objects.find((o) => o.id === destinationId);
   const landingName = landing
     ? `${landing.catalog}.${landing.schema_name}.${landing.name}`
@@ -151,7 +155,8 @@ function Vessel({
     if (!group.current) return;
     const at = reduced ? (a.started_at ?? clock.current) : clock.current;
     const motion = positionAt(a, path, at);
-    group.current.position.copy(motion.position);
+    const position = traffic.current.get(instanceKey) ?? motion.position;
+    group.current.position.copy(position);
     group.current.rotation.y = motion.heading;
     if (paper.current) {
       paper.current.rotation.z =
@@ -167,13 +172,13 @@ function Vessel({
         : 0;
     }
     if (shadow.current) {
-      shadow.current.position.set(motion.position.x, 0.09, motion.position.z);
+      shadow.current.position.set(position.x, 0.09, position.z);
       shadow.current.rotation.z = -motion.heading;
-      shadow.current.scale.setScalar(1 + motion.position.y * 0.12);
+      shadow.current.scale.setScalar(1 + position.y * 0.12);
     }
     if (wake.current) {
       wake.current.visible = moving && a.kind === "ship";
-      wake.current.position.copy(motion.position).setY(0.09);
+      wake.current.position.copy(position).setY(0.09);
       wake.current.rotation.y = motion.heading;
       wake.current.scale.x = 1 + Math.sin(at / 1200) * 0.04;
     }
@@ -195,7 +200,7 @@ function Vessel({
           />
         )}
       {selected &&
-        a.route.source_ids.slice(1).map((id) => {
+        a.route.source_ids.slice(a.kind === "buoy" ? 0 : 1).map((id) => {
           const o = layout.objects.find((x) => x.id === id);
           return (
             o && (
@@ -329,6 +334,88 @@ function Vessel({
   );
 }
 
+function VesselTraffic({
+  attempts,
+  layout,
+  clock,
+  reduced,
+  selected,
+  onSelect,
+}: {
+  attempts: Attempt[];
+  layout: LakeLayout;
+  clock: RefObject<number>;
+  reduced: boolean;
+  selected: Selection;
+  onSelect: (s: Selection) => void;
+}) {
+  const cache = useMemo(() => new Map<string, MotionPath>(), [layout]);
+  const plans = useMemo(
+    () =>
+      expandVessels(attempts.slice(0, 200)).map((instance) => {
+        const key = `${instance.key}:${instance.attempt.route.version}`;
+        let path = cache.get(key);
+        if (!path) {
+          path = makePath(
+            instance.attempt,
+            layout.objects,
+            layout.airports,
+            layout.piers,
+            instance.destinationId,
+            layout,
+          );
+          cache.set(key, path);
+        }
+        return { ...instance, path };
+      }),
+    [attempts, layout, cache],
+  );
+  const traffic = useRef(new Map<string, Vector3>());
+  useFrame(() => {
+    traffic.current = separateTraffic(
+      plans.map(({ key, attempt: a, path }) => ({
+        key,
+        kind: a.kind,
+        position: positionAt(
+          a,
+          path,
+          reduced ? (a.started_at ?? clock.current) : clock.current,
+        ).position,
+        fixed:
+          reduced ||
+          a.kind === "buoy" ||
+          a.phase !== "running" ||
+          a.collection_stale_at !== null,
+      })),
+      layout.water,
+    );
+  }, -1);
+  return (
+    <>
+      {plans.map(({ key, attempt: a, destinationId, path }) => (
+        <Vessel
+          key={key}
+          instanceKey={key}
+          attempt={a}
+          destinationId={destinationId}
+          path={path}
+          traffic={traffic}
+          layout={layout}
+          clock={clock}
+          reduced={reduced}
+          selected={
+            selected.type === "attempt" &&
+            selected.id === a.id &&
+            (a.kind !== "plane" ||
+              destinationId === selectedDestination(a, selected))
+          }
+          onSelect={onSelect}
+        />
+      ))}
+    </>
+  );
+}
+
 class SceneBoundary extends Component<
   { children: ReactNode },
   { failed: boolean }
@@ -393,6 +480,7 @@ export default function LakeScene({
         layout.airports,
         layout.piers,
         selectedDestination(selectedAttempt, selected),
+        layout,
       )
         .curve.getSpacedPoints(35)
         .some((p) => Math.hypot(p.x - duckPoint[0], p.z - duckPoint[2]) < 2));
@@ -405,7 +493,7 @@ export default function LakeScene({
         <Canvas
           orthographic
           shadows={false}
-          camera={{ position: [22, 26, 28], zoom: 16, near: 0.1, far: 200 }}
+          camera={{ position: CAMERA_OFFSET, zoom: 16, near: 0.1, far: 200 }}
           dpr={[1, 1.5]}
           fallback={
             <div className="scene-fallback">
@@ -446,25 +534,14 @@ export default function LakeScene({
                 reduced={reduced}
               />
             ))}
-            {expandVessels(attempts.slice(0, 200)).map(
-              ({ key, attempt: a, destinationId }) => (
-                <Vessel
-                  key={key}
-                  attempt={a}
-                  destinationId={destinationId}
-                  layout={layout}
-                  clock={clock}
-                  selected={
-                    selected.type === "attempt" &&
-                    selected.id === a.id &&
-                    (a.kind !== "plane" ||
-                      destinationId === selectedDestination(a, selected))
-                  }
-                  reduced={reduced}
-                  onSelect={onSelect}
-                />
-              ),
-            )}
+            <VesselTraffic
+              attempts={attempts}
+              layout={layout}
+              clock={clock}
+              reduced={reduced}
+              selected={selected}
+              onSelect={onSelect}
+            />
             {eggs && duckSafe && duckVisible(clock.current - captureStart) && (
               <PondPilotDucks
                 clock={clock}

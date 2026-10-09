@@ -4,6 +4,7 @@ import { Line, RoundedBox } from "@react-three/drei";
 import { BufferGeometry, Float32BufferAttribute, Group } from "three";
 import type { AirportLayout, DockLayout, PierLayout, Point } from "../layout";
 import type { Selection } from "../types";
+import { BERTH_SPACING } from "../navigation";
 import { Label } from "./SceneLabel";
 
 const roof = new BufferGeometry();
@@ -119,7 +120,7 @@ export function Dock({
           <meshStandardMaterial color="#697e72" side={2} flatShading />
         </mesh>
         <Tree position={[dock.width / 2 - 0.4, 0.2, -1.3]} scale={0.7} />
-        <Label center position={[0, 0.8, -3.3]} zIndexRange={[24, 0]}>
+        <Label center position={[0, 0.6, -4.4]} zIndexRange={[24, 0]}>
           <button
             className={`dock-label catalog-label ${active ? "selected" : ""}`}
             aria-label={`Catalog dock ${dock.catalog} · ${dock.piers.length} schemas`}
@@ -207,7 +208,7 @@ export function Pier({
         </group>
       ))}
       {dock.objects.slice(0, dock.slots).map((table, i) => {
-        const x = (i - (dock.slots - 1) / 2) * 0.9;
+        const x = (i - (dock.slots - 1) / 2) * BERTH_SPACING;
         const tint = ["#d9d7b8", "#a9bbb0", "#d6b89b"][i % 3];
         return (
           <group
@@ -336,10 +337,10 @@ export function Airport({
       onPointerOut={unhover}
     >
       <RoundedBox
-        args={[4.3, 0.38, 6.5]}
+        args={[4.3 + airport.apronExtra, 0.38, 6.5]}
         radius={0.16}
         smoothness={2}
-        position={[0, -0.05, 0]}
+        position={[(airport.side * airport.apronExtra) / 2, -0.05, 0]}
       >
         <meshStandardMaterial color="#c7d0b2" />
       </RoundedBox>
@@ -421,18 +422,9 @@ export function Airport({
           <meshStandardMaterial color="#f8ead5" side={2} />
         </mesh>
       </group>
-      <Tree position={[-1.4, 0.15, -2.4]} scale={0.6} />
-      <mesh position={[-airport.side * 3.1, 0.16, 0.8]}>
-        <boxGeometry args={[2.4, 0.16, 0.66]} />
-        <meshStandardMaterial color="#b39a70" />
-      </mesh>
       <Label
         center
-        position={[
-          airport.side === -1 ? 3.2 : 0,
-          0.6,
-          airport.side === -1 ? -5 : -3.22,
-        ]}
+        position={[airport.side * 1.2, 0.6, -4.3]}
         zIndexRange={[20, 0]}
       >
         <button

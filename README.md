@@ -16,6 +16,7 @@ _Recorded from the running app with simulated metadata at 20× replay speed._
 - **A 24-hour replay** supports play, pause, seeking, speed controls, and previous/next task events. Workspace and region filters preserve the harbor layout.
 - **A task inspector and activity list** expose execution state, elapsed time, launch estimates, route evidence, retries, and source details.
 - **A LakeSentry-inspired lighthouse and PondPilot-inspired ducks** add life to the lake and link to their respective sites.
+- **A connected landscape** places catalog docks directly on the shore, with schema piers extending into the water. Forest groves, crop fields, and country roads surround the lake; external-source airports sit farther inland.
 
 The frontend uses React, TypeScript, Three.js, and React Three Fiber. A Python FastAPI backend imports historical Jobs and Unity Catalog metadata and stores fixed replay captures in local SQLite. The included simulated capture makes the app runnable without a Databricks connection.
 
@@ -86,6 +87,8 @@ The importer sends metadata GET requests only. It does not start jobs, alter wor
 | Run navigation                                       | `src/runLinks.ts`, `src/JobRunPage.tsx`       |
 
 Schema piers use up to six visual table modules while retaining every table in the inspector. The scene prioritizes running, queued, selected, and recently completed attempts, rendering up to 200 task attempts plus their destination planes. The full imported activity list remains searchable. Layout stays stable during filtering and replay.
+
+Navigation reserves water corridors, apron positions, and mooring space from the complete capture. Ships leave the timber fingers before turning; planes cross open water at separate cruise heights. Local visual yielding reduces overlaps at crossings without changing task timestamps or status. Repeated seeks produce the same positions, and stale or failed vessels retain their frozen position. These routes illustrate estimated elapsed time, not measured data transfer or a physical traffic simulation.
 
 A red spiral-striped lighthouse draws on the [LakeSentry logo](https://lakesentry.io/). The green-headed duck flock draws on [PondPilot's Polly logo](https://pondpilot.io/). Clicking either model or its keyboard-accessible label opens the respective homepage in a new tab. The lighthouse scales its shoreline placement with the lake; its beacon and the ducks respect reduced motion. Ducks retain deterministic, quiet replay appearances throughout the full 24 hours and can be hidden through View options → Easter eggs. In the sample capture, seek to about 12:08 Toronto time to see the flock.
 

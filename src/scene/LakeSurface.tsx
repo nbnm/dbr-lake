@@ -1,52 +1,9 @@
 import { useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Group, Mesh, Shape, ShaderMaterial } from "three";
+import { Group, Mesh, ShaderMaterial } from "three";
 import type { LakeLayout, Point } from "../layout";
-import { Tree } from "./HarborModels";
-
-function outline(width: number, depth: number) {
-  const shape = new Shape();
-  const r = 2.7;
-  // Small, deterministic shoreline variations preserve the usable harbor area.
-  shape.moveTo(-width + r, -depth);
-  shape.bezierCurveTo(
-    -width / 2,
-    -depth - 0.22,
-    width / 2,
-    -depth + 0.18,
-    width - r,
-    -depth,
-  );
-  shape.quadraticCurveTo(width, -depth, width, -depth + r);
-  shape.bezierCurveTo(
-    width + 0.22,
-    -depth / 2,
-    width - 0.12,
-    depth / 2,
-    width,
-    depth - r,
-  );
-  shape.quadraticCurveTo(width, depth, width - r, depth);
-  shape.bezierCurveTo(
-    width / 2,
-    depth + 0.24,
-    -width / 2,
-    depth - 0.18,
-    -width + r,
-    depth,
-  );
-  shape.quadraticCurveTo(-width, depth, -width, depth - r);
-  shape.bezierCurveTo(
-    -width - 0.18,
-    depth / 2,
-    -width + 0.16,
-    -depth / 2,
-    -width,
-    -depth + r,
-  );
-  shape.quadraticCurveTo(-width, -depth, -width + r, -depth);
-  return shape;
-}
+import { Countryside } from "./Countryside";
+import { lakeOutline } from "../shoreline";
 
 const vertexShader = `varying vec2 vWater;
 void main() { vWater = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
@@ -177,12 +134,17 @@ export function LakeSurface({
   reduced: boolean;
 }) {
   const { halfWidth: w, halfDepth: d } = layout.water;
-  const water = useMemo(() => outline(w, d), [w, d]);
+  const water = useMemo(() => lakeOutline(w, d), [w, d]);
   const shore = useMemo(() => {
-    const ring = outline(w + 0.65, d + 0.65);
+    const ring = lakeOutline(w + 0.65, d + 0.65);
     ring.holes.push(water);
     return ring;
   }, [w, d, water]);
+  const ground = useMemo(() => {
+    const land = lakeOutline(layout.ground.halfWidth, layout.ground.halfDepth);
+    land.holes.push(water);
+    return land;
+  }, [layout, water]);
   const material = useRef<ShaderMaterial>(null);
   const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
   useFrame(() => {
@@ -216,7 +178,7 @@ export function LakeSurface({
       Array.from({ length: 8 }, (_, i) => {
         const side = i % 2 === 0 ? -1 : 1;
         return [
-          side * w * 0.91,
+          side * (w - 0.55),
           0.085,
           -d * 0.72 + Math.floor(i / 2) * d * 0.47,
         ] as Point;
@@ -225,6 +187,15 @@ export function LakeSurface({
   );
   return (
     <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.72, 0]}>
+        <extrudeGeometry
+          args={[
+            ground,
+            { depth: 0.78, bevelEnabled: false, curveSegments: 16 },
+          ]}
+        />
+        <meshStandardMaterial color="#b4c49f" roughness={1} />
+      </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.8, 0]}>
         <extrudeGeometry
           args={[
@@ -290,15 +261,7 @@ export function LakeSurface({
           </mesh>
         </group>
       ))}
-      {[-1, 1].flatMap((side) =>
-        [-0.65, -0.3, 0.25, 0.64].map((x, i) => (
-          <Tree
-            key={`${side}:${i}`}
-            position={[w * x, 0.1, side * (d + 0.18)]}
-            scale={0.55 + (i % 3) * 0.14}
-          />
-        )),
-      )}
+      <Countryside layout={layout} />
     </group>
   );
 }
