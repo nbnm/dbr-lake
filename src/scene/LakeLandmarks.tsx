@@ -300,18 +300,21 @@ function PondPilotDuck({ point, scale = 1 }: { point: Point; scale?: number }) {
 
 export function PondPilotDucks({
   water,
-  clock,
   reduced,
 }: {
   water: LakeLayout["water"];
-  clock: RefObject<number>;
   reduced: boolean;
 }) {
   const flock = useRef<Group>(null);
-  const initial = swimPose("ducks", water, clock.current, reduced);
-  useFrame(() => {
+  const initial = swimPose("ducks", water, 0, reduced);
+  useFrame(({ clock: ambientClock }) => {
     if (!flock.current) return;
-    const pose = swimPose("ducks", water, clock.current, reduced);
+    const pose = swimPose(
+      "ducks",
+      water,
+      ambientClock.elapsedTime * 1000,
+      reduced,
+    );
     flock.current.position.set(...pose.point);
     flock.current.rotation.y = pose.heading;
   });
@@ -362,11 +365,9 @@ function octopusArm(index: number) {
 
 export function EightFDEOctopus({
   water,
-  clock,
   reduced,
 }: {
   water: LakeLayout["water"];
-  clock: RefObject<number>;
   reduced: boolean;
 }) {
   const octopus = useRef<Group>(null);
@@ -390,16 +391,17 @@ export function EightFDEOctopus({
       ),
     [],
   );
-  const initial = swimPose("octopus", water, clock.current, reduced);
-  useFrame(() => {
+  const initial = swimPose("octopus", water, 0, reduced);
+  useFrame(({ clock: ambientClock }) => {
     if (!octopus.current) return;
-    const pose = swimPose("octopus", water, clock.current, reduced);
+    const elapsedMs = ambientClock.elapsedTime * 1000;
+    const pose = swimPose("octopus", water, elapsedMs, reduced);
     octopus.current.position.set(...pose.point);
     octopus.current.rotation.y = pose.heading;
     arms.current.forEach((arm, i) => {
       arm.rotation.z = reduced
         ? 0
-        : Math.sin(clock.current / 8500 + (i * Math.PI) / 4) * 0.045;
+        : Math.sin(elapsedMs / 8500 + (i * Math.PI) / 4) * 0.045;
     });
   });
   return (

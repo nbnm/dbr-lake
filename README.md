@@ -6,7 +6,7 @@ A local, read-only lake visualization for replaying the previous 24 hours of Dat
 
 ![Animated preview of T1A Lake with replaying paper vessels, catalog docks, a pale lighthouse, swimming PondPilot ducks and an 8FDE octopus](docs/assets/lake-replay.gif)
 
-_Recorded from the running app with simulated metadata at 20× replay speed._
+_Recorded from the running app with simulated metadata: paused replay followed by 20× playback. Both mascots swim throughout._
 
 ## What the lake shows
 
@@ -90,7 +90,7 @@ Schema piers use up to six visual table modules while retaining every table in t
 
 Navigation reserves water corridors, apron positions, and mooring space from the complete capture. Ships leave the timber fingers before turning; planes cross open water at separate cruise heights. Local visual yielding reduces overlaps at crossings without changing task timestamps or status. Repeated seeks produce the same positions, and stale or failed vessels retain their frozen position. These routes illustrate estimated elapsed time, not measured data transfer or a physical traffic simulation.
 
-The spiral-striped lighthouse draws on the [LakeSentry logo](https://lakesentry.io/) with pale coral, slate blue, and soft glass colours. The green-headed duck flock draws on [PondPilot's Polly logo](https://pondpilot.io/); the lavender octopus adapts [8FDE's mascot](https://8fde.ai/) with eight curled arms, round teal glasses, and a smile. Clicking a model or its keyboard-accessible label opens the respective homepage in a new tab. The ducks and octopus stay visible throughout the full 24-hour replay, including when tasks are selected or filtered. They swim in separate shoreline lanes kept clear of ship turns, buoys, piers, and vegetation. Swimming follows replay time, pauses with playback, and reproduces the same positions after seeking. Reduced motion keeps both mascots visible in fixed positions. View options → Lake mascots can hide them explicitly.
+The spiral-striped lighthouse draws on the [LakeSentry logo](https://lakesentry.io/) with pale coral, slate blue, and soft glass colours. The green-headed duck flock draws on [PondPilot's Polly logo](https://pondpilot.io/); the lavender octopus adapts [8FDE's mascot](https://8fde.ai/) with eight curled arms, round teal glasses, and a smile. Clicking a model or its keyboard-accessible label opens the respective homepage in a new tab. The ducks and octopus stay visible throughout the full 24-hour replay, including when tasks are selected or filtered. They swim in separate shoreline lanes kept clear of ship turns, buoys, piers, and vegetation. Swimming uses an independent ambient clock, so both mascots keep moving while replay is paused, at the end of a capture, and during speed changes or seeking. Reduced motion keeps both mascots visible in fixed positions. View options → Lake mascots can hide them explicitly.
 
 ## Validate
 

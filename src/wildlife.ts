@@ -8,17 +8,19 @@ const SHORE_INSET = 2.1;
 const LOOP_WIDTH = 0.28;
 
 // Opposite shoreline lanes stay clear of piers, central buoys and ship routes.
-// Absolute replay time makes swimming stable across pauses, seeks and filters.
+// Ambient animation time keeps swimming independent of replay controls.
 export function swimPose(
   mascot: LakeMascot,
   water: LakeLayout["water"],
-  at: number,
+  elapsedMs: number,
   reduced = false,
 ): { point: Point; heading: number; phase: number } {
   const side = mascot === "ducks" ? 1 : -1;
-  const period = mascot === "ducks" ? 360_000 : 420_000;
+  const period = mascot === "ducks" ? 28_000 : 34_000;
   const phase =
-    (reduced ? 0 : (((at % period) + period) % period) / period) * Math.PI * 2 +
+    (reduced ? 0 : (((elapsedMs % period) + period) % period) / period) *
+      Math.PI *
+      2 +
     (mascot === "ducks" ? 0.8 : 2.2);
   const length = Math.min(2.1, water.halfDepth - 5.1);
   return {

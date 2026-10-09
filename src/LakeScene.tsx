@@ -520,16 +520,8 @@ export default function LakeScene({
             />
             {eggs && (
               <>
-                <PondPilotDucks
-                  clock={clock}
-                  reduced={reduced}
-                  water={layout.water}
-                />
-                <EightFDEOctopus
-                  clock={clock}
-                  reduced={reduced}
-                  water={layout.water}
-                />
+                <PondPilotDucks reduced={reduced} water={layout.water} />
+                <EightFDEOctopus reduced={reduced} water={layout.water} />
               </>
             )}
           </LabelPortal.Provider>

@@ -184,13 +184,18 @@ describe("replay navigation", () => {
       }
     }
   });
-  it("reproduces swimming after seeks and holds visible positions with reduced motion", () => {
+  it("swims at an ambient pace and holds visible positions with reduced motion", () => {
     const water = buildLakeLayout(tables).water;
     for (const mascot of ["ducks", "octopus"] as const) {
       const first = swimPose(mascot, water, 123456789);
       swimPose(mascot, water, 123456789 + 86_400_000);
       expect(swimPose(mascot, water, 123456789)).toEqual(first);
       expect(swimPose(mascot, water, 123476789).point).not.toEqual(first.point);
+      expect(
+        new Vector3(...swimPose(mascot, water, 1000).point).distanceTo(
+          new Vector3(...swimPose(mascot, water, 0).point),
+        ),
+      ).toBeGreaterThan(0.2);
       expect(swimPose(mascot, water, 123456789, true)).toEqual(
         swimPose(mascot, water, 123556789, true),
       );
