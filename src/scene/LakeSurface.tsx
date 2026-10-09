@@ -20,10 +20,11 @@ const vertexShader = `varying vec2 vWater;
 void main() { vWater = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const fragmentShader = `uniform float uTime; varying vec2 vWater;
 void main() {
-  float drift = sin(vWater.x * .65 + vWater.y * .8 + uTime * .28);
-  float wave = sin(vWater.x * 1.5 - vWater.y * 2.2 + drift * .55 + uTime * .42);
-  float shimmer = smoothstep(.95, 1.0, wave) * .12;
-  float broad = sin(vWater.x * .18 + vWater.y * .24 + uTime * .08) * .035;
+  vec2 ripple = vWater * 1.4;
+  float drift = sin(ripple.x * .65 + ripple.y * .8 + uTime * .28);
+  float wave = sin(ripple.x * 1.5 - ripple.y * 2.2 + drift * .55 + uTime * .42);
+  float shimmer = smoothstep(.95, 1.0, wave) * .045;
+  float broad = sin(ripple.x * .18 + ripple.y * .24 + uTime * .08) * .014;
   vec3 base = vec3(.47, .68, .60);
   gl_FragColor = vec4(base + broad + vec3(.18, .21, .17) * shimmer, 1.0);
 }`;
@@ -44,22 +45,22 @@ function WaterRing({
       ? index * 0.7
       : (clock.elapsedTime * AMBIENT_TIME_SCALE * WAVE_SPEED) / 6.5 +
         index * 0.7;
-    ring.current.scale.setScalar(0.7 + 0.13 * Math.sin(t));
+    ring.current.scale.setScalar(0.46 + 0.08 * Math.sin(t));
     ring.current.position.x =
-      point[0] + (reduced ? 0 : Math.sin(t * 0.3) * 0.1);
+      point[0] + (reduced ? 0 : Math.sin(t * 0.3) * 0.06);
   });
   return (
     <mesh
       ref={ring}
       position={point}
       rotation={[-Math.PI / 2, 0, index * 1.7]}
-      scale={[0.8, 0.8, 0.8]}
+      scale={[0.46, 0.46, 0.46]}
     >
       <ringGeometry args={[0.38, 0.398, 24, 1, 0, Math.PI * 0.83]} />
       <meshBasicMaterial
         color="#c3decb"
         transparent
-        opacity={0.33}
+        opacity={0.15}
         depthWrite={false}
       />
     </mesh>
