@@ -6,7 +6,7 @@ export const SAILBOAT_RADIUS = 1.8;
 export function canadianFlag(water: LakeLayout["water"]) {
   const width = Math.max(4.8, Math.min(14, water.halfWidth * 0.17));
   return {
-    point: [-water.halfWidth - 2.4, 0.1, water.halfDepth + 2.8] as Point,
+    point: [water.halfWidth + 2.4, 0.1, -water.halfDepth - 2.8] as Point,
     width,
     height: width / 2,
     poleHeight: Math.max(12, width * 1.6 + 1),

@@ -5,6 +5,7 @@ import {
   cameraFit,
   CAMERA_OFFSET,
   PORTRAIT_CAMERA_OFFSET,
+  lighthousePoint,
 } from "./layout";
 import { AIR_LEVELS, cruiseHeight } from "./navigation";
 import { buildSurroundings } from "./environment";
@@ -88,7 +89,7 @@ describe("Alchemist's ambient sky lane", () => {
 });
 
 describe("visible brand landmarks", () => {
-  it("keeps the T1A sign and flagpole on the foreground shore with clear foundations", () => {
+  it("keeps the T1A sign on the foreground shore and the flag diagonally opposite the lighthouse, with clear foundations", () => {
     for (const count of [0, 4, 80]) {
       const lake = buildLakeLayout(inventory(count));
       const sign = t1aShoreSign(lake.water);
@@ -99,10 +100,13 @@ describe("visible brand landmarks", () => {
       );
       expect(sign.centerY - sign.height / 2).toBeLessThan(0.5);
       const flag = canadianFlag(lake.water);
-      expect(flag.point[0]).toBeLessThan(-lake.water.halfWidth);
-      expect(flag.point[2]).toBeGreaterThan(lake.water.halfDepth);
+      const lighthouse = lighthousePoint(lake);
+      expect(flag.point[0]).toBeGreaterThan(lake.water.halfWidth);
+      expect(flag.point[2]).toBeLessThan(-lake.water.halfDepth);
+      expect(flag.point[0] * lighthouse[0]).toBeLessThan(0);
+      expect(flag.point[2] * lighthouse[2]).toBeLessThan(0);
       expect(Math.abs(flag.point[0])).toBeLessThan(lake.ground.halfWidth - 1);
-      expect(flag.point[2]).toBeLessThan(lake.ground.halfDepth - 1);
+      expect(Math.abs(flag.point[2])).toBeLessThan(lake.ground.halfDepth - 1);
       expect(flag.poleHeight - flag.height - 0.25).toBeGreaterThan(5);
       for (const tree of buildSurroundings(lake).trees)
         for (const point of [sign.point, flag.point])

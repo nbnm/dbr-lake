@@ -12,6 +12,15 @@ import { canadianFlag } from "../landmarks";
 import { Label } from "./SceneLabel";
 import canadianFlagTexture from "../assets/canada.png";
 
+function softenFlagColours(shader: { fragmentShader: string }) {
+  // A light cream wash keeps the flag in the landscape's pale palette.
+  shader.fragmentShader = shader.fragmentShader.replace(
+    "#include <map_fragment>",
+    `#include <map_fragment>
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.94, 0.90, 0.81), 0.15);`,
+  );
+}
+
 export function CanadianFlagpole({
   water,
   reduced,
@@ -95,6 +104,7 @@ export function CanadianFlagpole({
             map={texture}
             side={DoubleSide}
             toneMapped={false}
+            onBeforeCompile={softenFlagColours}
           />
         </mesh>
       </Billboard>
