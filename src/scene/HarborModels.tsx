@@ -197,6 +197,10 @@ export function Pier({
     (selected.type === "table" &&
       dock.objects.some((o) => o.id === selected.id));
   const w = dock.width;
+  const length = dock.depth;
+  const posts = Array.from({ length: Math.ceil(length / 2.4) }, (_, i) =>
+    Math.min(length - 0.5, 1 + i * 2.4),
+  );
   return (
     <group
       position={dock.center}
@@ -209,7 +213,7 @@ export function Pier({
       onPointerOut={unhover}
     >
       <RoundedBox
-        args={[1.8, 0.32, 2.1]}
+        args={[w + 0.1, 0.32, 2.1]}
         radius={0.12}
         smoothness={2}
         position={[0, -0.06, -0.5]}
@@ -217,48 +221,35 @@ export function Pier({
         <meshStandardMaterial color={dock.branching ? "#b89b6f" : "#c5cfae"} />
       </RoundedBox>
       <RoundedBox
-        args={[w + 0.2, 0.16, 0.72]}
+        args={[w, 0.22, length + 0.35]}
         radius={0.05}
         smoothness={1}
-        position={[0, 0.14, 0.72]}
+        position={[0, 0.14, (length - 0.35) / 2]}
       >
         <meshStandardMaterial color="#b89b6f" />
       </RoundedBox>
-      {Array.from({ length: Math.ceil(w / 0.24) }, (_, i) => (
-        <mesh key={i} position={[-w / 2 + i * 0.24, 0.225, 0.72]}>
-          <boxGeometry args={[0.018, 0.01, 0.69]} />
+      {Array.from({ length: Math.ceil(length / 0.28) }, (_, i) => (
+        <mesh key={i} position={[0, 0.255, i * 0.28]}>
+          <boxGeometry args={[w - 0.08, 0.01, 0.018]} />
           <meshStandardMaterial color="#9e855f" />
         </mesh>
       ))}
-      <mesh position={[0, 0.13, 0.96]}>
-        <boxGeometry args={[w + 0.3, 0.14, 0.09]} />
-        <meshStandardMaterial color="#8d7857" />
-      </mesh>
       {[-w / 2, w / 2].map((x) => (
         <group key={x}>
-          <mesh position={[x, -0.03, 0.88]}>
-            <cylinderGeometry args={[0.09, 0.12, 0.6, 6]} />
-            <meshStandardMaterial color="#8f7958" />
+          <mesh position={[x, 0.13, length / 2]}>
+            <boxGeometry args={[0.07, 0.14, length]} />
+            <meshStandardMaterial color="#8d7857" />
           </mesh>
-          <Bollard position={[x, 0.23, 0.78]} />
+          {posts.map((z) => (
+            <group key={z}>
+              <mesh position={[x, -0.03, z]}>
+                <cylinderGeometry args={[0.09, 0.12, 0.6, 6]} />
+                <meshStandardMaterial color="#8f7958" />
+              </mesh>
+              <Bollard position={[x, 0.25, z]} />
+            </group>
+          ))}
         </group>
-      ))}
-      <RoundedBox
-        args={[w - 0.6, 0.2, 1.3]}
-        radius={0.05}
-        smoothness={1}
-        position={[0, 0.1, 1.65]}
-      >
-        <meshStandardMaterial color="#bda377" />
-      </RoundedBox>
-      {Array.from({ length: Math.ceil((w - 0.6) / 0.28) }, (_, i) => (
-        <mesh key={i} position={[-(w - 0.6) / 2 + i * 0.28, 0.205, 1.65]}>
-          <boxGeometry args={[0.018, 0.01, 1.26]} />
-          <meshStandardMaterial color="#927e5a" />
-        </mesh>
-      ))}
-      {[-w / 2 + 0.5, w / 2 - 0.5].map((x) => (
-        <Bollard key={x} position={[x, 0.2, 2.1]} />
       ))}
       <mesh position={[-0.5, 0.22, -0.97]}>
         <boxGeometry args={[0.33, 0.35, 0.31]} />
@@ -278,7 +269,7 @@ export function Pier({
         color="#e5d7ae"
         lineWidth={1}
       />
-      <Label center position={[0, 1.1, 1.5]} zIndexRange={[20, 0]}>
+      <Label center position={[0, 1.1, length / 2]} zIndexRange={[20, 0]}>
         <button
           className={`dock-label schema-label ${expanded ? "selected" : ""}`}
           aria-label={`Schema pier ${dock.catalog}.${dock.schema}`}

@@ -29,6 +29,7 @@ export function buildNavigation(
   attempts: Attempt[],
   objects: LakeObject[] = [],
 ): NavigationLayout {
+  const byId = new Map(objects.map((o) => [o.id, o]));
   const groups = new Map<string, LakeObject[]>();
   for (const object of objects) {
     const group = JSON.stringify([
@@ -81,7 +82,18 @@ export function buildNavigation(
           ? [destinationId].filter((id): id is string => !!id)
           : [a.route.source_ids[0], a.route.target_ids[0]].filter(Boolean);
       for (const id of new Set(ids)) {
-        ports[id] = reserve(`port:${physicalPorts.get(id) ?? id}`, start, end);
+        const object = byId.get(id);
+        // Ships reserve the whole schema's side berths, including different
+        // tables sharing that pier. Planes keep their separate landing ports.
+        const pool =
+          a.kind === "ship" && object
+            ? JSON.stringify([
+                object.metastore_id,
+                object.catalog,
+                object.schema_name,
+              ])
+            : (physicalPorts.get(id) ?? id);
+        ports[id] = reserve(`port:${a.kind}:${pool}`, start, end);
         portRows = Math.max(portRows, ports[id] + 1);
       }
     }

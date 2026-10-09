@@ -9,6 +9,7 @@ import {
 } from "three";
 import { Line } from "@react-three/drei";
 import type { Point } from "../layout";
+import { PAPER_SHIP_SCALE, PAPER_PLANE_SCALE } from "../vesselSize";
 
 function paperGeometry(faces: Point[][], shades: string[]) {
   const geometry = new BufferGeometry();
@@ -124,7 +125,7 @@ const selectionMaterial = new MeshBasicMaterial({ visible: false });
 
 export function PaperShip({ tint }: { tint: string }) {
   return (
-    <group scale={0.9}>
+    <group scale={PAPER_SHIP_SCALE}>
       <mesh
         name="ship-hitbox"
         geometry={shipSelectionBox}
@@ -169,7 +170,7 @@ export function PaperShip({ tint }: { tint: string }) {
 }
 export function PaperPlane({ tint }: { tint: string }) {
   return (
-    <group scale={0.86}>
+    <group scale={PAPER_PLANE_SCALE}>
       <mesh
         name="plane-hitbox"
         geometry={planeSelectionBox}

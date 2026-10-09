@@ -10,6 +10,11 @@ import {
   openWater,
 } from "./wildlife";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
+import {
+  PAPER_SHIP_RADIUS,
+  PAPER_PLANE_RADIUS,
+  VESSEL_SIZE_MULTIPLIER,
+} from "./vesselSize";
 
 export interface TrafficPosition {
   key: string;
@@ -126,11 +131,12 @@ export function separateTraffic(
             const aircraft = a.kind === "plane" || b.kind === "plane";
             const gap =
               a.kind === "plane" && b.kind === "plane"
-                ? 0.7
+                ? 0.7 * VESSEL_SIZE_MULTIPLIER
                 : Math.max(1.15, a.surfaceHeight ?? 0, b.surfaceHeight ?? 0);
             if (aircraft && Math.abs(p.y - q.y) >= gap) continue;
             const radius = (item: TrafficPosition) =>
-              item.radius ?? (item.kind === "plane" ? 1 : 0.82);
+              item.radius ??
+              (item.kind === "plane" ? PAPER_PLANE_RADIUS : PAPER_SHIP_RADIUS);
             const clearance = radius(a) + radius(b) + 0.18;
             const dx = p.x - q.x,
               dz = p.z - q.z;

@@ -10,6 +10,7 @@ import type { Attempt, LakeObject } from "./types";
 import {
   schemaId,
   harborPoint,
+  shipBerth,
   type AirportLayout,
   type LakeLayout,
   type PierLayout,
@@ -68,6 +69,8 @@ export function makePath(
     ? docks.find((d) => d.id === schemaId(target))
     : undefined;
   const port = (o: LakeObject, pier?: PierLayout) => {
+    if (pier && a.kind === "ship")
+      return new Vector3(...shipBerth(pier, slot?.ports[o.id] ?? 0, height));
     const p = new Vector3(...o.position).setY(height);
     if (pier)
       p.add(
@@ -111,8 +114,28 @@ export function makePath(
       )
     : to.clone().sub(from).setY(0).normalize();
   const side = new Vector3(-dir.z, 0, dir.x);
-  const end = to.clone().addScaledVector(dir, -1.6);
-  const approach = end.clone().addScaledVector(dir, -1.6);
+  if (a.kind === "ship" && targetDock) {
+    const dx = to.x - targetDock.center[0],
+      dz = to.z - targetDock.center[2];
+    const berthSide =
+      dx * Math.cos(targetDock.rotation) - dz * Math.sin(targetDock.rotation) <
+      0
+        ? -1
+        : 1;
+    // Holding turns stay on the water side of the berth, away from the timber.
+    side.set(
+      Math.cos(targetDock.rotation) * berthSide,
+      0,
+      -Math.sin(targetDock.rotation) * berthSide,
+    );
+  }
+  const end =
+    a.kind === "ship" && targetDock
+      ? to.clone()
+      : to.clone().addScaledVector(dir, -1.6);
+  const approach = end
+    .clone()
+    .addScaledVector(dir, a.kind === "ship" ? -0.55 : -1.6);
   const takeoff = from
     .clone()
     .addScaledVector(dir, 2)
@@ -183,10 +206,17 @@ export function makePath(
           Math.sin(sourceDock.rotation),
           0,
           Math.cos(sourceDock.rotation),
-        ).multiplyScalar(1.6),
+        ).multiplyScalar(0.55),
       );
     const gate = (p: Vector3, pier: PierLayout) => {
       const points: Vector3[] = [];
+      const dx = p.x - pier.center[0],
+        dz = p.z - pier.center[2];
+      const berthX =
+        dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+      const berthZ =
+        dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
+      const berthSide = berthX < 0 ? -1 : 1;
       const catalog = pier.branching
         ? layout.docks?.find((d) => d.id === pier.catalog_id)
         : undefined;
@@ -212,6 +242,17 @@ export function makePath(
           ),
         );
         points.push(p);
+      } else {
+        // Leave the side berth through its clearance channel, then pass the
+        // pier tip before turning into open water. Arrivals reverse this path.
+        const channelX = berthSide * (pier.width / 2 + 2.5);
+        points.push(
+          new Vector3(...harborPoint(pier, channelX, berthZ, height)),
+        );
+        p = new Vector3(
+          ...harborPoint(pier, channelX, pier.depth + 2.4, height),
+        );
+        points.push(p);
       }
       const x = Math.max(bounds.minX, Math.min(bounds.maxX, p.x));
       const z = Math.max(bounds.minZ, Math.min(bounds.maxZ, p.z));
@@ -222,8 +263,8 @@ export function makePath(
     };
     const sourceGates = gate(exit, sourceDock),
       targetGates = gate(approach, targetDock);
-    const sx = sourceGates[1].x,
-      tx = targetGates[1].x;
+    const sx = sourceGates.at(-1)!.x,
+      tx = targetGates.at(-1)!.x;
     const turnX =
       Math.abs(sx - tx) < 1
         ? Math.max(bounds.minX, Math.min(bounds.maxX, sx + 2.6))

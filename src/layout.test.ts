@@ -101,7 +101,7 @@ describe("inventory-driven harbor", () => {
         expect(insideWater(x + nx * 0.3, z + nz * 0.3, lake.water)).toBe(true);
         expect(insideWater(x - nx * 0.3, z - nz * 0.3, lake.water)).toBe(false);
         for (const side of [-pier.width / 2, pier.width / 2]) {
-          const front = harborPoint(pier, side, 2.3);
+          const front = harborPoint(pier, side, pier.depth);
           expect(insideWater(front[0], front[2], lake.water)).toBe(true);
         }
       }
@@ -143,11 +143,13 @@ describe("inventory-driven harbor", () => {
     expect(one.objects[0].position.every(Number.isFinite)).toBe(true);
     expect(cameraFit(empty, 390, 350)).toBeGreaterThan(0);
   });
-  it("grows both lake dimensions and frames a larger inventory", () => {
+  it("grows lake area and frames a larger inventory", () => {
     const single = buildLakeLayout(inventory(1, 1));
     const small = buildLakeLayout(inventory(6));
     expect(single.water.halfWidth).toBeLessThan(small.water.halfWidth);
-    expect(single.water.halfDepth).toBeLessThan(small.water.halfDepth);
+    expect(single.water.halfWidth * single.water.halfDepth).toBeLessThan(
+      small.water.halfWidth * small.water.halfDepth,
+    );
     const large = buildLakeLayout(inventory(48));
     expect(large.docks).toHaveLength(24);
     expect(large.piers).toHaveLength(48);
@@ -211,6 +213,9 @@ describe("inventory-driven harbor", () => {
     const one = buildLakeLayout(inventory(1, 1));
     const many = buildLakeLayout(inventory(1, 100));
     expect(many.docks[0].width).toBe(one.docks[0].width);
+    expect(many.piers[0].width).toBeLessThan(2);
+    expect(many.piers[0].depth).toBeGreaterThanOrEqual(7);
+    expect(many.piers[0].depth).toBe(one.piers[0].depth);
     expect(many.piers[0].slots).toBe(3);
     expect(many.objects).toHaveLength(100);
     expect(new Set(many.objects.map((o) => o.id)).size).toBe(100);
@@ -281,7 +286,11 @@ describe("inventory-driven harbor", () => {
     const layout = buildLakeLayout(inventory(6));
     const dock = layout.piers.find((d) => d.bank === "south")!;
     const first = layout.objects.find((o) => o.id === dock.objects[0].id)!;
-    expect(first.position[0]).toBeGreaterThan(dock.center[0]);
+    const deltaX = first.position[0] - dock.center[0];
+    const deltaZ = first.position[2] - dock.center[2];
+    expect(
+      deltaX * Math.cos(dock.rotation) - deltaZ * Math.sin(dock.rotation),
+    ).toBeLessThan(0);
     expect(first.position[2]).toBeLessThan(dock.center[2]);
     const a = {
       ...ingestion("ship", dock.objects[1].id),
@@ -292,9 +301,16 @@ describe("inventory-driven harbor", () => {
         source_ids: [dock.objects[0].id],
       },
     };
-    const path = makePath(a, layout.objects, [], layout.piers);
+    const path = makePath(
+      a,
+      layout.objects,
+      [],
+      layout.piers,
+      undefined,
+      layout,
+    );
     expect(path.curve.getTangentAt(0).z).toBeLessThan(0);
-    expect(path.end.z).toBeLessThan(path.to.z);
+    expect(path.end).toEqual(path.to);
     expect(path.curve.getTangentAt(1).z).toBeGreaterThan(0);
   });
   it("distributes catalogs on all four shores and connects a compact system dock to every schema branch", () => {

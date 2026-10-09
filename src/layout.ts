@@ -6,6 +6,7 @@ import {
   buildNavigation,
   PORT_ROW_SPACING,
   SCHEMA_PORTS,
+  vesselKey,
   type NavigationLayout,
 } from "./navigation";
 import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
@@ -15,6 +16,9 @@ import { dockShoreInset, shoreFrame, shoreRadius } from "./shoreline";
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
 export const PORTRAIT_CAMERA_OFFSET: Point = [48, 35, 6];
+export const MIN_PIER_DEPTH = 7.2;
+export const SHIP_BERTH_SPACING = 2.4;
+const PIER_GAP = 5.4;
 export type Shore = "north" | "south" | "west" | "east";
 export function harborPoint(
   harbor: { center: Point; rotation: number },
@@ -42,8 +46,20 @@ export interface PierLayout {
   bank: Shore;
   branching: boolean;
   width: number;
+  depth: number;
+  outerSide: -1 | 1;
   objects: LakeObject[];
   slots: number;
+}
+export function shipBerth(pier: PierLayout, berth: number, y = 0.28): Point {
+  const side = pier.branching ? pier.outerSide : berth % 2 ? 1 : -1;
+  const row = pier.branching ? berth : Math.floor(berth / 2);
+  return harborPoint(
+    pier,
+    side * (pier.width / 2 + 1.2),
+    2 + row * SHIP_BERTH_SPACING,
+    y,
+  );
 }
 export interface DockLayout {
   id: string;
@@ -204,40 +220,63 @@ export function buildLakeLayout(
     a.localeCompare(b),
   );
   const navigation = buildNavigation(attempts, [...byId.values()]);
-  const portRows = new Map<string, number>();
-  for (const slot of Object.values(navigation.slots))
+  const landingRows = new Map<string, number>();
+  const shipBerths = new Map<string, number>();
+  const kinds = new Map(attempts.map((a) => [a.id, a.kind]));
+  for (const [key, slot] of Object.entries(navigation.slots)) {
+    if (kinds.get(JSON.parse(key)[0]) !== "plane") continue;
     for (const [id, row] of Object.entries(slot.ports))
-      portRows.set(id, Math.max(portRows.get(id) ?? 0, row));
+      landingRows.set(id, Math.max(landingRows.get(id) ?? 0, row));
+  }
+  for (const a of attempts) {
+    if (a.kind !== "ship") continue;
+    for (const [id, berth] of Object.entries(
+      navigation.slots[vesselKey(a)]?.ports ?? {},
+    ))
+      shipBerths.set(id, Math.max(shipBerths.get(id) ?? 0, berth));
+  }
   const specs = entries.map(([id, catalog]) => {
     const groups = [...catalog.schemas.entries()].sort(([a], [b]) =>
       a.localeCompare(b),
     );
-    // Schema piers have one visual footprint, regardless of table density.
+    // Table density never widens a pier. Concurrent ships can extend its
+    // length to reserve enough moorings directly along the sides.
     const branching = groups.length > 3;
-    const pierWidths = groups.map(() => (branching ? 4.2 : 6.4));
+    const pierWidths = groups.map(() => 1.6);
+    const pierDepths = groups.map(([, group]) => {
+      let berth = 0;
+      for (const object of group.objects)
+        berth = Math.max(berth, shipBerths.get(object.id) ?? 0);
+      const row = branching ? berth : Math.floor(berth / 2);
+      return Math.max(MIN_PIER_DEPTH, 3.6 + row * SHIP_BERTH_SPACING);
+    });
     let maxPortRow = 0;
     for (const [, group] of groups)
       for (const object of group.objects)
-        maxPortRow = Math.max(maxPortRow, portRows.get(object.id) ?? 0);
-    const rowSpacing = 9.6 + maxPortRow * PORT_ROW_SPACING;
-    const width = Math.max(
-      4.5,
-      branching
-        ? 13
-        : pierWidths.reduce((sum, w) => sum + w, 0) +
-            Math.max(0, groups.length - 1) * 1.2,
-    );
+        maxPortRow = Math.max(maxPortRow, landingRows.get(object.id) ?? 0);
+    const pierDepth = Math.max(MIN_PIER_DEPTH, ...pierDepths);
+    const rowSpacing = pierDepth + 3.4;
+    const pierSpan =
+      pierWidths.reduce((sum, w) => sum + w, 0) +
+      Math.max(0, groups.length - 1) * PIER_GAP;
+    const width = Math.max(4.5, branching ? 13 : pierSpan);
     return {
       id,
       catalog,
       groups,
       pierWidths,
+      pierDepths,
+      pierSpan,
       width,
       branching,
       rowSpacing,
       depth: branching
-        ? 5.6 + (Math.ceil(groups.length / 2) - 1) * rowSpacing
-        : 3.4,
+        ? 3 +
+          pierDepth +
+          (Math.ceil(groups.length / 2) - 1) * rowSpacing +
+          3.4 +
+          maxPortRow * PORT_ROW_SPACING
+        : pierDepth + 3.4 + maxPortRow * PORT_ROW_SPACING,
     };
   });
   const shores: Shore[] = ["north", "south", "west", "east"];
@@ -250,7 +289,7 @@ export function buildLakeLayout(
       a.id.localeCompare(b.id),
   )) {
     const bank = bankWidths.indexOf(Math.min(...bankWidths));
-    if (banks[bank].length) bankWidths[bank] += 3;
+    if (banks[bank].length) bankWidths[bank] += PIER_GAP;
     banks[bank].push(spec);
     bankWidths[bank] += spec.width;
   }
@@ -396,7 +435,7 @@ export function buildLakeLayout(
         piers: [],
         objects: [],
       };
-      let px = -spec.width / 2;
+      let px = -spec.pierSpan / 2;
       dock.piers = spec.groups.map(([id, group], i) => {
         const side = i % 2 ? 1 : -1;
         const width = spec.pierWidths[i];
@@ -434,15 +473,17 @@ export function buildLakeLayout(
           shoreAnchor: frame.point,
           rotation: frame.rotation,
           width,
+          depth: spec.pierDepths[i],
+          outerSide: side as -1 | 1,
           slots: Math.min(group.objects.length, SCHEMA_PORTS),
           objects: [...group.objects].sort((a, b) => a.id.localeCompare(b.id)),
         };
-        px += width + 1.2;
+        px += width + PIER_GAP;
         return pier;
       });
       dock.objects = dock.piers.flatMap((pier) => pier.objects);
       docks.push(dock);
-      along += spec.width + 3;
+      along += spec.width + PIER_GAP;
     }
   });
   const piers = docks.flatMap((dock) => dock.piers);
@@ -452,7 +493,7 @@ export function buildLakeLayout(
       position: harborPoint(
         pier,
         ((i % pier.slots) - (pier.slots - 1) / 2) * BERTH_SPACING,
-        2.1,
+        pier.depth - 0.2,
         0.24,
       ),
     })),

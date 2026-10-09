@@ -14,6 +14,7 @@ import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 import { ambientTraffic, separateTraffic } from "./traffic";
 import { swimPose, SWIM_RADIUS, surfaceLoopMs, openWater } from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
+import { PAPER_SHIP_RADIUS } from "./vesselSize";
 
 const tables: LakeObject[] = Array.from({ length: 18 }, (_, i) => ({
   id: `m:catalog_${Math.floor(i / 6)}.schema_${Math.floor(i / 3)}.table_${i % 3}`,
@@ -215,7 +216,7 @@ describe("ambient journeys across the lake", () => {
               dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
             expect(
               Math.abs(localX) > pier.width / 2 + radius ||
-                localZ > 2.3 + radius ||
+                localZ > pier.depth + radius ||
                 localZ < -1.55 - radius,
             ).toBe(true);
           }
@@ -300,7 +301,7 @@ describe("ambient journeys across the lake", () => {
             expect(
               Math.hypot(p.x - q.x, p.z - q.z),
               `${swimmer.key} / ${vessel.key} at ${elapsed}`,
-            ).toBeGreaterThan(swimmer.radius! + 0.82 + 0.17);
+            ).toBeGreaterThan(swimmer.radius! + PAPER_SHIP_RADIUS + 0.17);
             if (vessel.fixed) expect(q).toEqual(vessel.position);
           }
           for (const other of swimmers.filter((o) => o.key !== swimmer.key))
@@ -334,6 +335,107 @@ describe("ambient journeys across the lake", () => {
 });
 
 describe("replay navigation", () => {
+  it("leaves clearance between neighboring catalogs for side-berth departures", () => {
+    const inventory = Array.from({ length: 48 }, (_, i) => ({
+      ...tables[0],
+      id: `m:c${Math.floor(i / 6)}.s${Math.floor(i / 3) % 2}.t${i % 3}`,
+      catalog: `c${Math.floor(i / 6)}`,
+      schema_name: `s${Math.floor(i / 3) % 2}`,
+    }));
+    const branches = Array.from({ length: 12 }, (_, i) => ({
+      ...tables[0],
+      id: `m:system.s${i}.t`,
+      catalog: "system",
+      schema_name: `s${i}`,
+    }));
+    const jobs = Array.from({ length: 8 }, (_, i) => ({
+      ...task(`catalog-${i}`),
+      route: {
+        ...task(`catalog-${i}`).route,
+        source_ids: [inventory[i * 6].id],
+        target_ids: [inventory[i * 6 + 3].id],
+      },
+    }));
+    const lake = buildLakeLayout([...inventory, ...branches], jobs);
+    for (const a of jobs) {
+      const path = makePath(a, lake.objects, [], lake.piers, undefined, lake);
+      for (const p of path.curve.getSpacedPoints(300)) {
+        for (const pier of lake.piers) {
+          const dx = p.x - pier.center[0],
+            dz = p.z - pier.center[2];
+          const x = dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+          const z = dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
+          expect(
+            Math.abs(x) > pier.width / 2 + PAPER_SHIP_RADIUS ||
+              z > pier.depth + PAPER_SHIP_RADIUS ||
+              z < -1.55 - PAPER_SHIP_RADIUS,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+  it("parks ships parallel alongside long narrow piers without a jump on completion or overlapping concurrent berths", () => {
+    const branches = Array.from({ length: 24 }, (_, i) => ({
+      ...tables[0],
+      id: `m:system.s${Math.floor(i / 3)}.t${i % 3}`,
+      catalog: "system",
+      schema_name: `s${Math.floor(i / 3)}`,
+    }));
+    const inventory = [...tables, ...branches];
+    const jobs = inventory.map((o, i) => ({
+      ...task(`berth-${i}`),
+      replay_duration_ms: 100_000,
+      ended_at: 101_000,
+      route: {
+        ...task(`berth-${i}`).route,
+        source_ids: [inventory[(i + 5) % inventory.length].id],
+        target_ids: [o.id],
+      },
+    }));
+    const lake = buildLakeLayout(inventory, jobs);
+    const parked: Vector3[] = [];
+    for (const a of jobs) {
+      const path = makePath(a, lake.objects, [], lake.piers, undefined, lake);
+      for (const [id, point] of [
+        [a.route.source_ids[0], path.from],
+        [a.route.target_ids[0], path.to],
+      ] as const) {
+        const pier = lake.piers.find((p) =>
+          p.objects.some((o) => o.id === id),
+        )!;
+        expect(pier.width).toBeLessThan(2);
+        expect(pier.depth).toBeGreaterThanOrEqual(7);
+        const dx = point.x - pier.center[0],
+          dz = point.z - pier.center[2];
+        const x = dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
+        const z = dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
+        expect(Math.abs(x)).toBeGreaterThan(pier.width / 2 + 0.8);
+        expect(Math.abs(x)).toBeLessThan(pier.width / 2 + 1.35);
+        expect(z).toBeGreaterThan(1);
+        expect(z).toBeLessThan(pier.depth - 1);
+        parked.push(point);
+      }
+      const approaching = positionAt(a, path, 100_999);
+      const finished = positionAt({ ...a, phase: "succeeded" }, path, 101_000);
+      expect(approaching.position.distanceTo(finished.position)).toBeLessThan(
+        0.01,
+      );
+      const pier = lake.piers.find((p) =>
+        p.objects.some((o) => o.id === a.route.target_ids[0]),
+      )!;
+      expect(Math.abs(Math.sin(finished.heading - pier.rotation))).toBeLessThan(
+        1e-8,
+      );
+      expect(Math.cos(approaching.heading - finished.heading)).toBeGreaterThan(
+        0.999,
+      );
+      expect(path.curve.getPointAt(1)).toEqual(path.to);
+    }
+    parked.forEach((p, i) => {
+      for (const q of parked.slice(i + 1))
+        expect(p.distanceTo(q)).toBeGreaterThan(PAPER_SHIP_RADIUS * 2 + 0.18);
+    });
+  });
   it("keeps ships and swimmers clear of the system dock's spine and every branch", () => {
     const branches = Array.from({ length: 36 }, (_, i) => ({
       ...tables[0],
@@ -383,7 +485,9 @@ describe("replay navigation", () => {
         const x = dx * Math.cos(pier.rotation) - dz * Math.sin(pier.rotation);
         const z = dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
         expect(
-          Math.abs(x) > pier.width / 2 + 0.8 || z > 3.05 || z < -2.45,
+          Math.abs(x) > pier.width / 2 + PAPER_SHIP_RADIUS ||
+            z > pier.depth + PAPER_SHIP_RADIUS ||
+            z < -2.45,
         ).toBe(true);
       }
     };
@@ -486,7 +590,7 @@ describe("replay navigation", () => {
             dx * Math.sin(pier.rotation) + dz * Math.cos(pier.rotation);
           expect(
             Math.abs(localX) > pier.width / 2 + 1 ||
-              localZ > 3.05 ||
+              localZ > pier.depth + 0.8 ||
               localZ < -2.45,
           ).toBe(true);
         }
@@ -532,7 +636,7 @@ describe("replay navigation", () => {
       positions.forEach((p, i) => {
         expect(insideLake(layout, p.x, p.z)).toBe(true);
         for (const q of positions.slice(i + 1))
-          expect(p.distanceTo(q)).toBeGreaterThan(1.6);
+          expect(p.distanceTo(q)).toBeGreaterThan(PAPER_SHIP_RADIUS * 2 + 0.17);
       });
     }
   });
