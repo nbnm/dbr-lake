@@ -7,6 +7,8 @@ import { lakeOutline } from "../shoreline";
 import { inSwimmingArea } from "../wildlife";
 import { inSailingArea } from "../landmarks";
 
+const WAVE_SPEED = 0.5;
+
 const vertexShader = `varying vec2 vWater;
 void main() { vWater = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const fragmentShader = `uniform float uTime; varying vec2 vWater;
@@ -33,7 +35,9 @@ function WaterRing({
   const ring = useRef<Mesh>(null);
   useFrame(() => {
     if (!ring.current) return;
-    const t = reduced ? index * 0.7 : clock.current / 6500 + index * 0.7;
+    const t = reduced
+      ? index * 0.7
+      : (clock.current * WAVE_SPEED) / 6500 + index * 0.7;
     ring.current.scale.setScalar(0.7 + 0.13 * Math.sin(t));
     ring.current.position.x =
       point[0] + (reduced ? 0 : Math.sin(t * 0.3) * 0.1);
@@ -153,7 +157,7 @@ export function LakeSurface({
     if (material.current)
       material.current.uniforms.uTime.value = reduced
         ? 0
-        : (clock.current % 3_600_000) / 1000;
+        : ((clock.current * WAVE_SPEED) % 3_600_000) / 1000;
   });
   const rings = useMemo(
     () =>

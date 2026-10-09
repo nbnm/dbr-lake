@@ -142,7 +142,7 @@ export function LakeSentryLighthouse({
     if (lantern.current)
       lantern.current.rotation.y = reduced
         ? Math.PI / 4
-        : ((clock.current % 24_000) / 24_000) * Math.PI * 2;
+        : ((clock.current % 48_000) / 48_000) * Math.PI * 2;
   });
   return (
     <group
