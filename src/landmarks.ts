@@ -1,7 +1,8 @@
 import type { LakeLayout, Point } from "./layout";
 import { surfacePose, openWater } from "./wildlife";
+import { SAILBOAT_SIZE_MULTIPLIER } from "./landmarkSize";
 
-export const SAILBOAT_RADIUS = 1.8;
+export const SAILBOAT_RADIUS = 1.8 * SAILBOAT_SIZE_MULTIPLIER;
 
 export function canadianFlag(water: LakeLayout["water"]) {
   const width = Math.max(4.8, Math.min(14, water.halfWidth * 0.17)) * 0.7;
@@ -37,7 +38,9 @@ export function sailboatPose(
   return {
     point: [
       pose.point[0],
-      pose.point[1] + (reduced ? 0 : Math.sin(phase) * 0.018),
+      pose.point[1] +
+        0.08 * (SAILBOAT_SIZE_MULTIPLIER - 1) +
+        (reduced ? 0 : Math.sin(phase) * 0.018),
       pose.point[2],
     ] as Point,
     heading: pose.heading,

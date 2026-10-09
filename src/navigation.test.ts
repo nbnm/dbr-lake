@@ -12,7 +12,7 @@ import { buildSurroundings } from "./environment";
 import { lakeOutline } from "./shoreline";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 import { ambientTraffic, separateTraffic } from "./traffic";
-import { swimPose, SWIM_RADIUS, surfaceLoopMs, openWater } from "./wildlife";
+import { swimPose, SWIM_RADII, surfaceLoopMs, openWater } from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
 import { PAPER_SHIP_RADIUS } from "./vesselSize";
 
@@ -199,7 +199,8 @@ describe("ambient journeys across the lake", () => {
           const pose = poseAt(at);
           const p = new Vector3(...pose.point);
           points.push(p);
-          const radius = kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADIUS;
+          const radius =
+            kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADII[kind];
           for (const [x, z] of [
             [radius, 0],
             [-radius, 0],
@@ -330,7 +331,7 @@ describe("ambient journeys across the lake", () => {
     const positions = separateTraffic([boat, plane], lake.water);
     expect(
       positions.get("plane")!.y - positions.get(boat.key)!.y,
-    ).toBeGreaterThanOrEqual(4.3);
+    ).toBeGreaterThan(4.9);
   });
 });
 

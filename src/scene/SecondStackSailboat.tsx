@@ -12,6 +12,7 @@ import {
 } from "three";
 import type { LakeLayout } from "../layout";
 import { sailboatPose } from "../landmarks";
+import { SAILBOAT_SIZE_MULTIPLIER } from "../landmarkSize";
 import { LandmarkLink, LandmarkModel } from "./LandmarkLink";
 import { SceneTraffic } from "./SceneTraffic";
 
@@ -135,6 +136,7 @@ export function SecondStackSailboat({
     <LandmarkModel
       name="secondstack-sailboat"
       ref={boat}
+      scale={SAILBOAT_SIZE_MULTIPLIER}
       position={initial.point}
       rotation={[0, initial.heading, initial.roll]}
       onClick={(event) => {

@@ -11,6 +11,11 @@ import {
 } from "three";
 import type { LakeLayout, Point } from "../layout";
 import { swimPose } from "../wildlife";
+import {
+  DUCK_SIZE_MULTIPLIER,
+  OCTOPUS_SIZE_MULTIPLIER,
+  LIGHTHOUSE_SIZE_MULTIPLIER,
+} from "../landmarkSize";
 import { LandmarkLink, LandmarkModel } from "./LandmarkLink";
 import { SceneTraffic } from "./SceneTraffic";
 
@@ -141,6 +146,7 @@ export function LakeSentryLighthouse({
     <LandmarkModel
       name="lakesentry-lighthouse"
       position={point}
+      scale={LIGHTHOUSE_SIZE_MULTIPLIER}
       onClick={(event) => {
         event.stopPropagation();
         visit(LAKESENTRY_URL);
@@ -356,6 +362,7 @@ export function PondPilotDucks({
     <LandmarkModel
       name="pondpilot-ducks"
       ref={flock}
+      scale={DUCK_SIZE_MULTIPLIER}
       position={initial.point}
       rotation={[0, initial.heading, 0]}
       onClick={(event) => {
@@ -444,6 +451,7 @@ export function EightFDEOctopus({
     <LandmarkModel
       name="8fde-octopus"
       ref={octopus}
+      scale={OCTOPUS_SIZE_MULTIPLIER}
       position={initial.point}
       rotation={[0, initial.heading, 0]}
       onClick={(event) => {

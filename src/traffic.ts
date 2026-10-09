@@ -4,12 +4,17 @@ import type { Attempt } from "./types";
 import {
   SHIP_SHORE_INSET,
   swimPose,
-  SWIM_RADIUS,
+  SWIM_RADII,
   SURFACE_INSET_X,
   SURFACE_INSET_Z,
   openWater,
 } from "./wildlife";
 import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
+import {
+  DUCK_SIZE_MULTIPLIER,
+  OCTOPUS_SIZE_MULTIPLIER,
+  SAILBOAT_SIZE_MULTIPLIER,
+} from "./landmarkSize";
 import {
   PAPER_SHIP_RADIUS,
   PAPER_PLANE_RADIUS,
@@ -45,8 +50,12 @@ export function ambientTraffic(
       ).point,
     ),
     fixed: false,
-    radius: kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADIUS,
-    surfaceHeight: kind === "sailboat" ? 4.3 : 1.4,
+    radius: kind === "sailboat" ? SAILBOAT_RADIUS : SWIM_RADII[kind],
+    surfaceHeight:
+      kind === "sailboat"
+        ? 4.3 * SAILBOAT_SIZE_MULTIPLIER
+        : 1.4 *
+          (kind === "ducks" ? DUCK_SIZE_MULTIPLIER : OCTOPUS_SIZE_MULTIPLIER),
     insetX: SURFACE_INSET_X,
     insetZ: SURFACE_INSET_Z,
   }));
@@ -61,6 +70,9 @@ export function separateTraffic(
 ) {
   const ordered = [...items].sort((a, b) => a.key.localeCompare(b.key));
   const positions = ordered.map((item) => item.position.clone());
+  const trafficRadius = (item: TrafficPosition) =>
+    item.radius ??
+    (item.kind === "plane" ? PAPER_PLANE_RADIUS : PAPER_SHIP_RADIUS);
   const constrain = (i: number) => {
     if (ordered[i].kind === "plane" || ordered[i].fixed) return;
     const p = positions[i];
@@ -101,12 +113,25 @@ export function separateTraffic(
             new Vector3(other.x + side * Math.sqrt(square), p.y, z),
           );
     }
-    const feasible = candidates
-      .filter((q) => q.x >= minX && q.x <= maxX && q.z >= minZ && q.z <= maxZ)
-      .sort(
-        (a, b) => a.distanceToSquared(desired) - b.distanceToSquared(desired),
-      );
-    if (feasible[0]) p.copy(feasible[0]);
+    const feasible = candidates.filter(
+      (q) => q.x >= minX && q.x <= maxX && q.z >= minZ && q.z <= maxZ,
+    );
+    // A larger swimmer may not fit between neighboring parked hulls. Prefer
+    // a detour that clears the entire fixed cluster instead of oscillating
+    // between the nearest escape points for two individual ships.
+    const clear = feasible.filter((q) =>
+      ordered.every(
+        (item, j) =>
+          !item.fixed ||
+          item.kind === "plane" ||
+          Math.hypot(q.x - positions[j].x, q.z - positions[j].z) >=
+            trafficRadius(ordered[i]) + trafficRadius(item) + 0.18,
+      ),
+    );
+    const detours = (clear.length ? clear : feasible).sort(
+      (a, b) => a.distanceToSquared(desired) - b.distanceToSquared(desired),
+    );
+    if (detours[0]) p.copy(detours[0]);
   };
   for (let pass = 0; pass < 16; pass++) {
     const cells = new Map<string, number[]>();
@@ -134,10 +159,7 @@ export function separateTraffic(
                 ? 0.7 * VESSEL_SIZE_MULTIPLIER
                 : Math.max(1.15, a.surfaceHeight ?? 0, b.surfaceHeight ?? 0);
             if (aircraft && Math.abs(p.y - q.y) >= gap) continue;
-            const radius = (item: TrafficPosition) =>
-              item.radius ??
-              (item.kind === "plane" ? PAPER_PLANE_RADIUS : PAPER_SHIP_RADIUS);
-            const clearance = radius(a) + radius(b) + 0.18;
+            const clearance = trafficRadius(a) + trafficRadius(b) + 0.18;
             const dx = p.x - q.x,
               dz = p.z - q.z;
             const distance = Math.hypot(dx, dz);

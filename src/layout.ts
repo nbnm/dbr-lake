@@ -13,6 +13,7 @@ import { canadianFlagBounds, zeppelinBounds } from "./landmarks";
 import { externalAirportName, isExport } from "./vessels";
 import { dockShoreInset, shoreFrame, shoreRadius } from "./shoreline";
 import { PLANE_APRON_COLUMN_SPACING } from "./vesselSize";
+import { LIGHTHOUSE_SIZE_MULTIPLIER } from "./landmarkSize";
 
 export type Point = [number, number, number];
 export const CAMERA_OFFSET: Point = [16, 26, 44];
@@ -601,14 +602,14 @@ export function cameraFit(
     },
     {
       min: [
-        lighthousePoint(layout)[0] - 1.4,
-        -0.3,
-        lighthousePoint(layout)[2] - 1.4,
+        lighthousePoint(layout)[0] - 1.4 * LIGHTHOUSE_SIZE_MULTIPLIER,
+        -0.3 * LIGHTHOUSE_SIZE_MULTIPLIER,
+        lighthousePoint(layout)[2] - 1.4 * LIGHTHOUSE_SIZE_MULTIPLIER,
       ],
       max: [
-        lighthousePoint(layout)[0] + 1.4,
-        5.1,
-        lighthousePoint(layout)[2] + 1.4,
+        lighthousePoint(layout)[0] + 1.4 * LIGHTHOUSE_SIZE_MULTIPLIER,
+        5.1 * LIGHTHOUSE_SIZE_MULTIPLIER,
+        lighthousePoint(layout)[2] + 1.4 * LIGHTHOUSE_SIZE_MULTIPLIER,
       ],
     },
     {

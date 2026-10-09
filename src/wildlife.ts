@@ -1,8 +1,13 @@
 import type { LakeLayout, Point } from "./layout";
 import { shoreRadius } from "./shoreline";
+import { DUCK_SIZE_MULTIPLIER, OCTOPUS_SIZE_MULTIPLIER } from "./landmarkSize";
 
 export type LakeMascot = "ducks" | "octopus";
-export const SWIM_RADIUS = 1.35;
+export const SWIM_RADII = {
+  ducks: 1.35 * DUCK_SIZE_MULTIPLIER,
+  octopus: 1.35 * OCTOPUS_SIZE_MULTIPLIER,
+};
+export const SWIM_RADIUS = Math.max(...Object.values(SWIM_RADII));
 export const SHIP_SHORE_INSET = 4.8;
 export const BUOY_SHORE_INSET = 4.7;
 export type SurfaceLandmark = LakeMascot | "sailboat";
@@ -77,11 +82,18 @@ export function swimPose(
   reduced = false,
 ): { point: Point; heading: number; phase: number } {
   const pose = surfacePose(mascot, water, elapsedMs, reduced);
+  // Keep the enlarged wakes on the water instead of scaling them underneath it.
+  const waterlineOffset =
+    mascot === "ducks"
+      ? 0.13 * 0.7 * (DUCK_SIZE_MULTIPLIER - 1)
+      : 0.13 * (OCTOPUS_SIZE_MULTIPLIER - 1);
   return {
     ...pose,
     point: [
       pose.point[0],
-      pose.point[1] + (reduced ? 0 : Math.sin(pose.phase * 2) * 0.016),
+      pose.point[1] +
+        waterlineOffset +
+        (reduced ? 0 : Math.sin(pose.phase * 2) * 0.016),
       pose.point[2],
     ],
   };
