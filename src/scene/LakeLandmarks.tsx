@@ -11,32 +11,25 @@ import {
 } from "three";
 import type { LakeLayout, Point } from "../layout";
 import { swimPose } from "../wildlife";
-import { LandmarkLink } from "./LandmarkLink";
+import { LandmarkLink, LandmarkModel } from "./LandmarkLink";
 import { SceneTraffic } from "./SceneTraffic";
 
 const LAKESENTRY_URL = "https://lakesentry.io/";
 const PONDPILOT_URL = "https://pondpilot.io/";
 const EIGHT_FDE_URL = "https://8fde.ai/";
 const ANTARES_URL = "https://getantares.io/";
-const hover = () => {
-  document.body.style.cursor = "pointer";
-};
-const unhover = () => {
-  document.body.style.cursor = "";
-};
 const visit = (url: string) =>
   window.open(url, "_blank", "noopener,noreferrer");
 
 export function AntaresSkyscraper({ point }: { point: Point }) {
   return (
-    <group
+    <LandmarkModel
+      name="antares-skyscraper"
       position={point}
       onClick={(event) => {
         event.stopPropagation();
         visit(ANTARES_URL);
       }}
-      onPointerOver={hover}
-      onPointerOut={unhover}
     >
       <RoundedBox args={[2.7, 0.24, 2.2]} radius={0.12} position={[0, 0.12, 0]}>
         <meshStandardMaterial color="#deddd1" />
@@ -89,7 +82,7 @@ export function AntaresSkyscraper({ point }: { point: Point }) {
         point={[0, 7.65, 0]}
         logo="/brands/antares.svg"
       />
-    </group>
+    </LandmarkModel>
   );
 }
 
@@ -145,14 +138,13 @@ export function LakeSentryLighthouse({
         : ((clock.current % 48_000) / 48_000) * Math.PI * 2;
   });
   return (
-    <group
+    <LandmarkModel
+      name="lakesentry-lighthouse"
       position={point}
       onClick={(event) => {
         event.stopPropagation();
         visit(LAKESENTRY_URL);
       }}
-      onPointerOver={hover}
-      onPointerOut={unhover}
     >
       <mesh
         position={[0, -0.06, 0]}
@@ -262,7 +254,7 @@ export function LakeSentryLighthouse({
         point={[0, 4.95, 0]}
         theme="lighthouse"
       />
-    </group>
+    </LandmarkModel>
   );
 }
 
@@ -361,7 +353,8 @@ export function PondPilotDucks({
     flock.current.rotation.y = pose.heading;
   });
   return (
-    <group
+    <LandmarkModel
+      name="pondpilot-ducks"
       ref={flock}
       position={initial.point}
       rotation={[0, initial.heading, 0]}
@@ -369,8 +362,6 @@ export function PondPilotDucks({
         event.stopPropagation();
         visit(PONDPILOT_URL);
       }}
-      onPointerOver={hover}
-      onPointerOut={unhover}
     >
       <group scale={0.7}>
         <PondPilotDuck point={[0, 0, 0]} />
@@ -383,7 +374,7 @@ export function PondPilotDucks({
         point={[0, 2, 0]}
         theme="ducks"
       />
-    </group>
+    </LandmarkModel>
   );
 }
 
@@ -450,7 +441,8 @@ export function EightFDEOctopus({
     });
   });
   return (
-    <group
+    <LandmarkModel
+      name="8fde-octopus"
       ref={octopus}
       position={initial.point}
       rotation={[0, initial.heading, 0]}
@@ -458,8 +450,6 @@ export function EightFDEOctopus({
         event.stopPropagation();
         visit(EIGHT_FDE_URL);
       }}
-      onPointerOver={hover}
-      onPointerOut={unhover}
     >
       <group scale={0.9}>
         <mesh position={[0, 0.56, 0]} scale={[0.53, 0.62, 0.48]}>
@@ -536,6 +526,6 @@ export function EightFDEOctopus({
         point={[0, 2.65, 0]}
         theme="octopus"
       />
-    </group>
+    </LandmarkModel>
   );
 }

@@ -46,3 +46,27 @@ describe("linked brand plaques", () => {
     }
   });
 });
+
+it("keeps a lone hover caption clear of the title at the bottom of the lake", () => {
+  for (const [width, height] of [
+    [1280, 725],
+    [390, 690],
+  ]) {
+    const title = lakeTitleBox(width, height);
+    const caption = {
+      key: "Antares",
+      x: title.x,
+      y: height - 30,
+      width: 110,
+      height: 30,
+    };
+    const positions = positionPlaques([caption, title], width, height);
+    const [x, y] = positions.get(caption.key)!;
+    expect(
+      Math.abs(x - title.x) >= (caption.width + title.width) / 2 + 5 ||
+        Math.abs(y - title.y) >= (caption.height + title.height) / 2 + 5,
+    ).toBe(true);
+    expect(y + caption.height / 2).toBeLessThanOrEqual(height - 62);
+    expect(positions.get("T1A")).toEqual([title.x, title.y]);
+  }
+});

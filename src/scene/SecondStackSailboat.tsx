@@ -12,7 +12,7 @@ import {
 } from "three";
 import type { LakeLayout } from "../layout";
 import { sailboatPose } from "../landmarks";
-import { LandmarkLink } from "./LandmarkLink";
+import { LandmarkLink, LandmarkModel } from "./LandmarkLink";
 import { SceneTraffic } from "./SceneTraffic";
 
 const URL = "https://secondstack.ai/";
@@ -132,19 +132,14 @@ export function SecondStackSailboat({
     boat.current.rotation.set(0, pose.heading, pose.roll);
   });
   return (
-    <group
+    <LandmarkModel
+      name="secondstack-sailboat"
       ref={boat}
       position={initial.point}
       rotation={[0, initial.heading, initial.roll]}
       onClick={(event) => {
         event.stopPropagation();
         window.open(URL, "_blank", "noopener,noreferrer");
-      }}
-      onPointerOver={() => {
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        document.body.style.cursor = "";
       }}
     >
       <mesh geometry={hull}>
@@ -220,6 +215,6 @@ export function SecondStackSailboat({
         />
       </mesh>
       <LandmarkLink name="SecondStack" href={URL} point={[0, 4.45, 0]} />
-    </group>
+    </LandmarkModel>
   );
 }

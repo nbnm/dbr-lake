@@ -5,7 +5,7 @@ import { Group, SRGBColorSpace, TextureLoader, type Texture } from "three";
 import type { LakeLayout } from "../layout";
 import { zeppelinDimensions, zeppelinPose } from "../landmarks";
 import { Label } from "./SceneLabel";
-import { LandmarkLink } from "./LandmarkLink";
+import { LandmarkLink, LandmarkModel } from "./LandmarkLink";
 import { lakeTitleBox } from "../plaqueLayout";
 
 const ALCHEMIST_URL = "https://getalchemist.io/";
@@ -56,15 +56,6 @@ function openBrand(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-const pointer = {
-  onPointerOver: () => {
-    document.body.style.cursor = "pointer";
-  },
-  onPointerOut: () => {
-    document.body.style.cursor = "";
-  },
-};
-
 export function AlchemistZeppelin({
   water,
   reduced,
@@ -98,7 +89,7 @@ export function AlchemistZeppelin({
     airship.current.rotation.set(0, pose.heading, pose.roll);
   });
   return (
-    <group
+    <LandmarkModel
       ref={airship}
       name="alchemist-zeppelin"
       position={initial.point}
@@ -107,7 +98,6 @@ export function AlchemistZeppelin({
         event.stopPropagation();
         openBrand(ALCHEMIST_URL);
       }}
-      {...pointer}
     >
       <mesh scale={[l / 2, r, r]}>
         <sphereGeometry args={[1, 32, 16]} />
@@ -173,7 +163,7 @@ export function AlchemistZeppelin({
         point={[0, r + 0.6, 0]}
         theme="lighthouse"
       />
-    </group>
+    </LandmarkModel>
   );
 }
 

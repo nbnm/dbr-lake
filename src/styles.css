@@ -566,6 +566,8 @@ input[type="checkbox"] {
   white-space: nowrap;
   box-shadow: 0 2px 4px #4866470a;
   cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
   transition:
     background 140ms ease,
     border-color 140ms ease;
@@ -573,6 +575,10 @@ input[type="checkbox"] {
 .lighthouse-link {
   color: #5f7188;
   border-color: #d5b4a2;
+}
+.landmark-link.is-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 .octopus-link {
   color: #60578f;

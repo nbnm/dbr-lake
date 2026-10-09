@@ -47,6 +47,16 @@ export function positionPlaques(
       );
     if (!item.pinned && overlaps(box)) {
       const candidates: PlaqueBox[] = [];
+      // A single hovered caption must clear the large title even when the
+      // other product captions are hidden and cannot supply extra search steps.
+      for (const q of placed) {
+        candidates.push(
+          clamp(item.x, q.y - (q.height + item.height) / 2 - 6),
+          clamp(item.x, q.y + (q.height + item.height) / 2 + 6),
+          clamp(q.x - (q.width + item.width) / 2 - 6, item.y),
+          clamp(q.x + (q.width + item.width) / 2 + 6, item.y),
+        );
+      }
       for (let step = 1; step <= items.length; step++) {
         candidates.push(
           clamp(item.x, item.y - step * (item.height + 6)),
