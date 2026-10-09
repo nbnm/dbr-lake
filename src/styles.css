@@ -2988,3 +2988,23 @@ button.external-source > svg:last-child {
     height: 15px;
   }
 }
+
+/* The logo is printed on the sails; reveal a text link only for keyboard focus. */
+.sailboat-accessible-link {
+  display: block;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.sailboat-accessible-link:focus-visible {
+  width: auto;
+  height: auto;
+  clip-path: none;
+  overflow: visible;
+  padding: 7px 10px;
+  background: #fcfcf4;
+  border-radius: 5px;
+  font-size: 11px;
+}

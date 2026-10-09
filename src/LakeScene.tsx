@@ -27,6 +27,7 @@ import { Label, LabelPortal, SceneCaptions } from "./scene/SceneLabel";
 import { Dock, Airport } from "./scene/HarborModels";
 import { PaperPlane, PaperShip } from "./scene/PaperModels";
 import { LakeSurface } from "./scene/LakeSurface";
+import { SecondStackSailboat } from "./scene/SecondStackSailboat";
 import {
   AntaresSkyscraper,
   EightFDEOctopus,
@@ -504,6 +505,7 @@ export default function LakeScene({
                 reduced={reduced}
               />
               <AntaresSkyscraper point={antaresPoint(layout)} />
+              <SecondStackSailboat water={layout.water} reduced={reduced} />
               {layout.docks.map((dock) => (
                 <Dock
                   key={dock.id}

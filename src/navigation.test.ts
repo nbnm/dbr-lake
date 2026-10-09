@@ -5,6 +5,7 @@ import { buildNavigation, vesselKey } from "./navigation";
 import { makePath, positionAt } from "./motion";
 import { buildSurroundings } from "./environment";
 import { lakeOutline } from "./shoreline";
+import { sailboatPose, SAILBOAT_RADIUS } from "./landmarks";
 import { separateTraffic } from "./traffic";
 import { swimPose, SWIM_RADIUS } from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
@@ -166,6 +167,82 @@ describe("shore and countryside", () => {
         buildLakeLayout([...tables].reverse(), [task("flight", 0, 3, "plane")]),
       ),
     ).toEqual(surroundings);
+  });
+});
+
+describe("SecondStack shore mooring", () => {
+  it("keeps the hull in water and clear of mascot lanes and ship travel/holding positions", () => {
+    const ships = [
+      task("left", 0, 0),
+      task("right", 17, 17),
+      task("cross", 0, 17),
+    ];
+    const layouts = [
+      buildLakeLayout([]),
+      buildLakeLayout(tables, ships),
+      buildLakeLayout(
+        Array.from({ length: 30 }, (_, i) => ({
+          ...tables[0],
+          id: `m:c${i}.s.t`,
+          catalog: `c${i}`,
+        })),
+        ships,
+      ),
+    ];
+    for (const layout of layouts) {
+      for (let at = 0; at < 420000; at += 5000) {
+        const boat = sailboatPose(layout.water, at);
+        for (const [x, z] of [
+          [0, 1.65],
+          [-0.6, 0.65],
+          [-0.55, -1.3],
+          [0.55, -1.3],
+          [0.6, 0.65],
+        ]) {
+          const px =
+            boat.point[0] +
+            x * Math.cos(boat.heading) +
+            z * Math.sin(boat.heading);
+          const pz =
+            boat.point[2] -
+            x * Math.sin(boat.heading) +
+            z * Math.cos(boat.heading);
+          expect(insideLake(layout, px, pz)).toBe(true);
+        }
+        for (const mascot of ["ducks", "octopus"] as const) {
+          const p = swimPose(mascot, layout.water, at).point;
+          expect(
+            Math.hypot(p[0] - boat.point[0], p[2] - boat.point[2]),
+          ).toBeGreaterThan(SAILBOAT_RADIUS + SWIM_RADIUS + 0.18);
+        }
+      }
+      const center = sailboatPose(layout.water, 0).point;
+      for (const ship of ships) {
+        if (!layout.objects.some((o) => o.id === ship.route.source_ids[0]))
+          continue;
+        const path = makePath(
+          ship,
+          layout.objects,
+          layout.airports,
+          layout.piers,
+          undefined,
+          layout,
+        );
+        for (const p of [
+          ...path.curve.getSpacedPoints(100),
+          ...Array.from(
+            { length: 60 },
+            (_, i) => positionAt(ship, path, 181000 + i * 1000).position,
+          ),
+        ])
+          expect(Math.hypot(p.x - center[0], p.z - center[2])).toBeGreaterThan(
+            SAILBOAT_RADIUS + 0.82 + 0.18,
+          );
+      }
+      expect(sailboatPose(layout.water, 0, true)).toEqual(
+        sailboatPose(layout.water, 123456, true),
+      );
+    }
   });
 });
 
