@@ -3,7 +3,6 @@ import type { Attempt, LakeObject } from "./types";
 import { makePath, positionAt } from "./motion";
 import { isOverdue, reconstruct, status } from "./state";
 import type { Replay } from "./types";
-import { duckVisible } from "./ducks";
 
 const objects: LakeObject[] = [
   {
@@ -186,20 +185,4 @@ it("reconstructs the same event-time state on repeated seeks without future stat
   expect(reconstruct(replay, 1500)).toEqual(first);
   expect(first.attempts[0].phase).toBe("running");
   expect(first.attempts[0].estimate).toEqual(attempt.estimate);
-});
-
-it("keeps duck appearances deterministic and waits at least three minutes", () => {
-  for (let t = 0; t < 180000; t += 1000) expect(duckVisible(t)).toBe(false);
-  const schedule = Array.from({ length: 1800 }, (_, i) =>
-    duckVisible(i * 1000),
-  );
-  expect(schedule.some(Boolean)).toBe(true);
-  expect(Array.from({ length: 1800 }, (_, i) => duckVisible(i * 1000))).toEqual(
-    schedule,
-  );
-  expect(
-    Array.from({ length: 3600 }, (_, i) =>
-      duckVisible((23 * 3600 + i) * 1000),
-    ).some(Boolean),
-  ).toBe(true);
 });

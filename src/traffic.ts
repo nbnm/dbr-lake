@@ -1,6 +1,7 @@
 import { Vector3 } from "three";
 import type { LakeLayout } from "./layout";
 import type { Attempt } from "./types";
+import { SHIP_SHORE_INSET } from "./wildlife";
 
 export interface TrafficPosition {
   key: string;
@@ -21,7 +22,10 @@ export function separateTraffic(
   const constrain = (i: number) => {
     if (ordered[i].kind === "plane" || ordered[i].fixed) return;
     const p = positions[i];
-    p.x = Math.max(-water.halfWidth + 3, Math.min(water.halfWidth - 3, p.x));
+    p.x = Math.max(
+      -water.halfWidth + SHIP_SHORE_INSET,
+      Math.min(water.halfWidth - SHIP_SHORE_INSET, p.x),
+    );
     p.z = Math.max(
       -water.halfDepth + 4.1,
       Math.min(water.halfDepth - 4.1, p.z),

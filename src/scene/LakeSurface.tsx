@@ -4,6 +4,7 @@ import { Group, Mesh, ShaderMaterial } from "three";
 import type { LakeLayout, Point } from "../layout";
 import { Countryside } from "./Countryside";
 import { lakeOutline } from "../shoreline";
+import { inSwimmingArea } from "../wildlife";
 
 const vertexShader = `varying vec2 vWater;
 void main() { vWater = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
@@ -182,7 +183,7 @@ export function LakeSurface({
           0.085,
           -d * 0.72 + Math.floor(i / 2) * d * 0.47,
         ] as Point;
-      }),
+      }).filter((point) => !inSwimmingArea(point, layout.water)),
     [w, d],
   );
   return (

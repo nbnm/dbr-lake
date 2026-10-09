@@ -148,7 +148,7 @@ export function buildLakeLayout(
   }
   const halfWidth = Math.max(
     entries.length ? 7.2 : 6,
-    Math.max(...bankWidths) / 2 + 3.2,
+    Math.max(...bankWidths) / 2 + 4.2,
     Math.ceil(Math.sqrt(navigation.lanes.buoy)) * 1.3 + 4,
   );
   let halfDepth = Math.max(

@@ -6,6 +6,7 @@ import { makePath, positionAt } from "./motion";
 import { buildSurroundings } from "./environment";
 import { lakeOutline } from "./shoreline";
 import { separateTraffic } from "./traffic";
+import { swimPose, SWIM_RADIUS } from "./wildlife";
 import type { Attempt, LakeObject } from "./types";
 
 const tables: LakeObject[] = Array.from({ length: 18 }, (_, i) => ({
@@ -159,6 +160,88 @@ describe("shore and countryside", () => {
 });
 
 describe("replay navigation", () => {
+  it("keeps both mascots in separate open-water lanes throughout the full replay day", () => {
+    const layouts = [buildLakeLayout([]), buildLakeLayout(tables)];
+    for (const layout of layouts) {
+      for (let at = 0; at <= 86_400_000; at += 60_000) {
+        const duck = swimPose("ducks", layout.water, at);
+        const octopus = swimPose("octopus", layout.water, at);
+        expect(
+          new Vector3(...duck.point).distanceTo(new Vector3(...octopus.point)),
+        ).toBeGreaterThan(SWIM_RADIUS * 2);
+        for (const pose of [duck, octopus]) {
+          expect(Math.abs(pose.point[0]) + SWIM_RADIUS).toBeLessThan(
+            layout.water.halfWidth - 0.3,
+          );
+          expect(Math.abs(pose.point[2]) + SWIM_RADIUS).toBeLessThan(
+            layout.water.halfDepth - 2.7,
+          );
+          for (const pier of layout.piers)
+            expect(Math.abs(pose.point[0] - pier.center[0])).toBeGreaterThan(
+              pier.width / 2 + SWIM_RADIUS,
+            );
+        }
+      }
+    }
+  });
+  it("reproduces swimming after seeks and holds visible positions with reduced motion", () => {
+    const water = buildLakeLayout(tables).water;
+    for (const mascot of ["ducks", "octopus"] as const) {
+      const first = swimPose(mascot, water, 123456789);
+      swimPose(mascot, water, 123456789 + 86_400_000);
+      expect(swimPose(mascot, water, 123456789)).toEqual(first);
+      expect(swimPose(mascot, water, 123476789).point).not.toEqual(first.point);
+      expect(swimPose(mascot, water, 123456789, true)).toEqual(
+        swimPose(mascot, water, 123556789, true),
+      );
+    }
+  });
+  it("leaves mascot lanes clear of ship turns, frozen holding positions and processing buoys", () => {
+    const ships = [
+      task("left", 0, 0),
+      task("right", 17, 17),
+      task("cross", 0, 17),
+    ];
+    const buoys = Array.from({ length: 100 }, (_, i) =>
+      task(`buoy${i}`, 0, 3, "buoy"),
+    );
+    for (const attempts of [ships, buoys]) {
+      const layout = buildLakeLayout(tables, attempts);
+      for (const a of attempts) {
+        const path = makePath(
+          a,
+          layout.objects,
+          layout.airports,
+          layout.piers,
+          undefined,
+          layout,
+        );
+        const positions =
+          a.kind === "buoy"
+            ? [path.from]
+            : [
+                ...path.curve.getSpacedPoints(100),
+                ...Array.from(
+                  { length: 60 },
+                  (_, i) => positionAt(a, path, 181000 + i * 1000).position,
+                ),
+              ];
+        for (const mascot of ["ducks", "octopus"] as const) {
+          for (let at = 0; at < 420_000; at += 10_000) {
+            const point = new Vector3(
+              ...swimPose(mascot, layout.water, at).point,
+            );
+            const radius = a.kind === "buoy" ? 0.35 : 0.82;
+            for (const position of positions)
+              expect(
+                Math.hypot(point.x - position.x, point.z - position.z),
+                `${a.id} / ${mascot} at ${at}: ${position.toArray()} vs ${point.toArray()}`,
+              ).toBeGreaterThan(SWIM_RADIUS + radius + 0.18);
+          }
+        }
+      }
+    }
+  });
   it("reserves separate lanes and moorings for overlapping attempts, reusing them after the display window", () => {
     const first = task("first"),
       second = task("second"),

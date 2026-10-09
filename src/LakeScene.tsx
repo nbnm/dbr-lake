@@ -16,12 +16,15 @@ import { CAMERA_OFFSET, cameraFit, lighthousePoint } from "./layout";
 import { isOverdue } from "./state";
 import { makePath, positionAt, type MotionPath } from "./motion";
 import { separateTraffic } from "./traffic";
-import { duckVisible } from "./ducks";
 import { Label, LabelPortal } from "./scene/SceneLabel";
 import { Dock, Airport } from "./scene/HarborModels";
 import { PaperPlane, PaperShip } from "./scene/PaperModels";
 import { LakeSurface } from "./scene/LakeSurface";
-import { LakeSentryLighthouse, PondPilotDucks } from "./scene/LakeLandmarks";
+import {
+  EightFDEOctopus,
+  LakeSentryLighthouse,
+  PondPilotDucks,
+} from "./scene/LakeLandmarks";
 import { expandVessels, flightSelection, selectedDestination } from "./vessels";
 
 const colors = {
@@ -445,7 +448,6 @@ export default function LakeScene({
   reduced,
   eggs,
   action,
-  captureStart,
 }: {
   layout: LakeLayout;
   attempts: Attempt[];
@@ -455,35 +457,9 @@ export default function LakeScene({
   reduced: boolean;
   eggs: boolean;
   action: CameraAction | null;
-  captureStart: number;
 }) {
   // Stable DOM attachment prevents HTML labels from rebuilding when events connect.
   const portal = useRef<HTMLDivElement>(null!);
-  const selectedAttempt =
-    selected.type === "attempt"
-      ? attempts.find((a) => a.id === selected.id)
-      : undefined;
-  const duckPoint: Point = [
-    layout.water.halfWidth - 1.7,
-    0.22,
-    layout.water.halfDepth * 0.55,
-  ];
-  const duckSafe =
-    !layout.piers.some(
-      (d) =>
-        Math.hypot(d.center[0] - duckPoint[0], d.center[2] - duckPoint[2]) < 3,
-    ) &&
-    (!selectedAttempt ||
-      !makePath(
-        selectedAttempt,
-        layout.objects,
-        layout.airports,
-        layout.piers,
-        selectedDestination(selectedAttempt, selected),
-        layout,
-      )
-        .curve.getSpacedPoints(35)
-        .some((p) => Math.hypot(p.x - duckPoint[0], p.z - duckPoint[2]) < 2));
   return (
     <div
       ref={portal}
@@ -542,12 +518,19 @@ export default function LakeScene({
               selected={selected}
               onSelect={onSelect}
             />
-            {eggs && duckSafe && duckVisible(clock.current - captureStart) && (
-              <PondPilotDucks
-                clock={clock}
-                reduced={reduced}
-                point={duckPoint}
-              />
+            {eggs && (
+              <>
+                <PondPilotDucks
+                  clock={clock}
+                  reduced={reduced}
+                  water={layout.water}
+                />
+                <EightFDEOctopus
+                  clock={clock}
+                  reduced={reduced}
+                  water={layout.water}
+                />
+              </>
             )}
           </LabelPortal.Provider>
         </Canvas>

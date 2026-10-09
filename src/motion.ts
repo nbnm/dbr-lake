@@ -14,6 +14,7 @@ import {
   type PierLayout,
 } from "./layout";
 import { cruiseHeight, PORT_ROW_SPACING, vesselKey } from "./navigation";
+import { BUOY_SHORE_INSET, SHIP_SHORE_INSET } from "./wildlife";
 
 function roundedPath(points: Vector3[]) {
   const curve = new CurvePath<Vector3>();
@@ -89,7 +90,9 @@ export function makePath(
     if (column)
       from.x += airport.side * (column * 1.9 + (airport.side === 1 ? 1.9 : 0));
   }
-  if (from.distanceTo(to) < 0.1) from.add(new Vector3(-2, 0, -1));
+  // Harbor routes already form a loop for tasks reading and writing one table.
+  // The generic fallback offset could otherwise push their launch into shore lanes.
+  if (!layout && from.distanceTo(to) < 0.1) from.add(new Vector3(-2, 0, -1));
   const dir = targetDock
     ? new Vector3(0, 0, -targetDock.direction)
     : to.clone().sub(from).setY(0).normalize();
@@ -104,7 +107,7 @@ export function makePath(
   if (a.kind === "buoy" && layout) {
     const columns = Math.max(
       1,
-      Math.floor((layout.water.halfWidth * 2 - 7) / 2.6),
+      Math.floor((layout.water.halfWidth * 2 - BUOY_SHORE_INSET * 2) / 2.6),
     );
     from.set(
       ((lane % columns) -
@@ -146,8 +149,8 @@ export function makePath(
     const turnX =
       Math.abs(sx - tx) < 1
         ? Math.max(
-            -layout.water.halfWidth + 3.2,
-            Math.min(layout.water.halfWidth - 3.2, sx + 2.6),
+            -layout.water.halfWidth + SHIP_SHORE_INSET,
+            Math.min(layout.water.halfWidth - SHIP_SHORE_INSET, sx + 2.6),
           )
         : sx;
     curve = roundedPath([

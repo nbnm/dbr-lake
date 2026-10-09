@@ -2,12 +2,21 @@ import { useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
 import { ArrowUpRight } from "lucide-react";
-import { BufferGeometry, Float32BufferAttribute, Group } from "three";
-import type { Point } from "../layout";
+import {
+  BufferGeometry,
+  CatmullRomCurve3,
+  Float32BufferAttribute,
+  Group,
+  TubeGeometry,
+  Vector3,
+} from "three";
+import type { LakeLayout, Point } from "../layout";
+import { swimPose } from "../wildlife";
 import { Label } from "./SceneLabel";
 
 const LAKESENTRY_URL = "https://lakesentry.io/";
 const PONDPILOT_URL = "https://pondpilot.io/";
+const EIGHT_FDE_URL = "https://8fde.ai/";
 const hover = () => {
   document.body.style.cursor = "pointer";
 };
@@ -26,7 +35,7 @@ function LandmarkLink({
   name: string;
   href: string;
   point: Point;
-  theme: "lighthouse" | "ducks";
+  theme: "lighthouse" | "ducks" | "octopus";
 }) {
   return (
     <Label center position={point} zIndexRange={[18, 0]}>
@@ -120,11 +129,11 @@ export function LakeSentryLighthouse({
       </mesh>
       <mesh position={[0, 0.43, 0]}>
         <cylinderGeometry args={[0.82, 0.94, 0.17, 12]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       <mesh position={[0, 1.73, 0]}>
         <cylinderGeometry args={[0.51, 0.76, 2.4, 48]} />
-        <meshStandardMaterial color="#f80000" roughness={0.82} />
+        <meshStandardMaterial color="#cf9a8e" roughness={0.82} />
       </mesh>
       <mesh geometry={stripe}>
         <meshStandardMaterial color="#fff9ee" side={2} roughness={0.9} />
@@ -135,15 +144,15 @@ export function LakeSentryLighthouse({
         smoothness={2}
         position={[0, 0.82, 0.73]}
       >
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </RoundedBox>
       <mesh position={[0, 2.34, 0.57]}>
         <boxGeometry args={[0.16, 0.28, 0.055]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       <mesh position={[0, 3.02, 0]}>
         <cylinderGeometry args={[0.83, 0.83, 0.18, 12]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       {Array.from({ length: 8 }, (_, i) => {
         const angle = (i * Math.PI) / 4;
@@ -153,18 +162,18 @@ export function LakeSentryLighthouse({
             position={[Math.sin(angle) * 0.69, 3.28, Math.cos(angle) * 0.69]}
           >
             <cylinderGeometry args={[0.025, 0.025, 0.45, 5]} />
-            <meshStandardMaterial color="#002460" />
+            <meshStandardMaterial color="#74869c" />
           </mesh>
         );
       })}
       <mesh position={[0, 3.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.69, 0.028, 5, 24]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       <mesh position={[0, 3.47, 0]}>
         <cylinderGeometry args={[0.46, 0.46, 0.72, 8]} />
         <meshStandardMaterial
-          color="#7db4f7"
+          color="#b8d1dd"
           transparent
           opacity={0.58}
           roughness={0.15}
@@ -198,15 +207,15 @@ export function LakeSentryLighthouse({
       </group>
       <mesh position={[0, 3.91, 0]}>
         <cylinderGeometry args={[0.67, 0.67, 0.12, 8]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       <mesh position={[0, 4.2, 0]} rotation={[0, Math.PI / 8, 0]}>
         <coneGeometry args={[0.82, 0.54, 8]} />
-        <meshStandardMaterial color="#f80000" />
+        <meshStandardMaterial color="#cf9a8e" />
       </mesh>
       <mesh position={[0, 4.55, 0]}>
         <sphereGeometry args={[0.09, 8, 6]} />
-        <meshStandardMaterial color="#002460" />
+        <meshStandardMaterial color="#74869c" />
       </mesh>
       <LandmarkLink
         name="LakeSentry"
@@ -290,27 +299,27 @@ function PondPilotDuck({ point, scale = 1 }: { point: Point; scale?: number }) {
 }
 
 export function PondPilotDucks({
-  point,
+  water,
   clock,
   reduced,
 }: {
-  point: Point;
+  water: LakeLayout["water"];
   clock: RefObject<number>;
   reduced: boolean;
 }) {
   const flock = useRef<Group>(null);
+  const initial = swimPose("ducks", water, clock.current, reduced);
   useFrame(() => {
     if (!flock.current) return;
-    const drift = reduced ? 0 : Math.sin(clock.current / 90_000);
-    flock.current.position.z = point[2] + drift * 0.35;
-    flock.current.position.y =
-      point[1] + (reduced ? 0 : Math.sin(clock.current / 1800) * 0.018);
-    flock.current.rotation.y = -Math.PI / 5 + drift * 0.3;
+    const pose = swimPose("ducks", water, clock.current, reduced);
+    flock.current.position.set(...pose.point);
+    flock.current.rotation.y = pose.heading;
   });
   return (
     <group
       ref={flock}
-      position={point}
+      position={initial.point}
+      rotation={[0, initial.heading, 0]}
       onClick={(event) => {
         event.stopPropagation();
         visit(PONDPILOT_URL);
@@ -318,14 +327,167 @@ export function PondPilotDucks({
       onPointerOver={hover}
       onPointerOut={unhover}
     >
-      <PondPilotDuck point={[0, 0, 0]} />
-      <PondPilotDuck point={[-0.8, 0, -0.85]} scale={0.74} />
-      <PondPilotDuck point={[0.54, 0, -1.3]} scale={0.62} />
+      <group scale={0.7}>
+        <PondPilotDuck point={[0, 0, 0]} />
+        <PondPilotDuck point={[-0.8, 0, -0.85]} scale={0.74} />
+        <PondPilotDuck point={[0.54, 0, -1.3]} scale={0.62} />
+      </group>
       <LandmarkLink
         name="PondPilot"
         href={PONDPILOT_URL}
-        point={[-0.2, 1.3, -0.2]}
+        point={[0, 2, 0]}
         theme="ducks"
+      />
+    </group>
+  );
+}
+
+// Curled arms and teal spectacles adapt 8FDE's purple line-art mascot to 3D.
+function octopusArm(index: number) {
+  return new TubeGeometry(
+    new CatmullRomCurve3([
+      new Vector3(0.23, 0.19, 0),
+      new Vector3(0.57, 0.08, 0.05),
+      new Vector3(0.94, 0.07, 0.14),
+      new Vector3(1.12, 0.16, 0.28),
+      new Vector3(0.96, 0.31 + (index % 2) * 0.06, 0.38),
+      new Vector3(0.79, 0.27, 0.29),
+    ]),
+    24,
+    0.075,
+    7,
+    false,
+  );
+}
+
+export function EightFDEOctopus({
+  water,
+  clock,
+  reduced,
+}: {
+  water: LakeLayout["water"];
+  clock: RefObject<number>;
+  reduced: boolean;
+}) {
+  const octopus = useRef<Group>(null);
+  const arms = useRef<Group[]>([]);
+  const geometry = useMemo(
+    () => Array.from({ length: 8 }, (_, i) => octopusArm(i)),
+    [],
+  );
+  const smile = useMemo(
+    () =>
+      new TubeGeometry(
+        new CatmullRomCurve3([
+          new Vector3(-0.13, 0.43, 0.46),
+          new Vector3(0, 0.37, 0.49),
+          new Vector3(0.13, 0.43, 0.46),
+        ]),
+        16,
+        0.018,
+        6,
+        false,
+      ),
+    [],
+  );
+  const initial = swimPose("octopus", water, clock.current, reduced);
+  useFrame(() => {
+    if (!octopus.current) return;
+    const pose = swimPose("octopus", water, clock.current, reduced);
+    octopus.current.position.set(...pose.point);
+    octopus.current.rotation.y = pose.heading;
+    arms.current.forEach((arm, i) => {
+      arm.rotation.z = reduced
+        ? 0
+        : Math.sin(clock.current / 8500 + (i * Math.PI) / 4) * 0.045;
+    });
+  });
+  return (
+    <group
+      ref={octopus}
+      position={initial.point}
+      rotation={[0, initial.heading, 0]}
+      onClick={(event) => {
+        event.stopPropagation();
+        visit(EIGHT_FDE_URL);
+      }}
+      onPointerOver={hover}
+      onPointerOut={unhover}
+    >
+      <group scale={0.9}>
+        <mesh position={[0, 0.56, 0]} scale={[0.53, 0.62, 0.48]}>
+          <sphereGeometry args={[1, 24, 20]} />
+          <meshStandardMaterial color="#b4a6df" roughness={0.78} />
+        </mesh>
+        {geometry.map((arm, i) => (
+          <group key={i} rotation={[0, (i * Math.PI) / 4, 0]}>
+            <group
+              ref={(group) => {
+                if (group) arms.current[i] = group;
+              }}
+            >
+              <mesh geometry={arm}>
+                <meshStandardMaterial color="#9588ce" roughness={0.8} />
+              </mesh>
+              {[0.57, 0.8].map((x) => (
+                <mesh
+                  key={x}
+                  position={[x, 0.04, x === 0.57 ? 0.05 : 0.1]}
+                  scale={[1, 0.5, 1]}
+                >
+                  <sphereGeometry args={[0.046, 8, 6]} />
+                  <meshStandardMaterial color="#e0d8ef" />
+                </mesh>
+              ))}
+            </group>
+          </group>
+        ))}
+        {[-1, 1].map((side) => (
+          <group
+            key={side}
+            position={[side * 0.235, 0.68, 0.42]}
+            rotation={[0, side * 0.22, 0]}
+          >
+            <mesh>
+              <sphereGeometry args={[0.177, 16, 12]} />
+              <meshStandardMaterial color="#fcfaf2" />
+            </mesh>
+            <mesh position={[0, 0, 0.167]}>
+              <torusGeometry args={[0.185, 0.034, 8, 28]} />
+              <meshStandardMaterial color="#167991" />
+            </mesh>
+            <mesh position={[0, 0, 0.17]}>
+              <sphereGeometry args={[0.068, 12, 8]} />
+              <meshStandardMaterial color="#167991" />
+            </mesh>
+            <mesh position={[-0.019, 0.027, 0.225]}>
+              <sphereGeometry args={[0.018, 8, 6]} />
+              <meshBasicMaterial color="#ffffff" />
+            </mesh>
+          </group>
+        ))}
+        <mesh position={[0, 0.68, 0.62]}>
+          <boxGeometry args={[0.1, 0.045, 0.045]} />
+          <meshStandardMaterial color="#167991" />
+        </mesh>
+        <mesh geometry={smile}>
+          <meshStandardMaterial color="#7062b7" />
+        </mesh>
+      </group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.13, 0]}>
+        <ringGeometry args={[1.1, 1.12, 48, 1, 0.4, Math.PI * 1.65]} />
+        <meshBasicMaterial
+          color="#c3decb"
+          transparent
+          opacity={0.55}
+          depthWrite={false}
+        />
+      </mesh>
+      <LandmarkLink
+        name="8FDE"
+        href={EIGHT_FDE_URL}
+        point={[0, 2.65, 0]}
+        theme="octopus"
       />
     </group>
   );

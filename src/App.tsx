@@ -563,7 +563,6 @@ export default function App() {
                           reduced={reduced}
                           eggs={eggs}
                           action={action}
-                          captureStart={scene.range.start}
                         />
                       )}
                     </Suspense>
@@ -794,7 +793,7 @@ export default function App() {
                               checked={eggs}
                               onChange={(e) => setEggs(e.target.checked)}
                             />
-                            Easter eggs
+                            Lake mascots
                           </label>
                           <label>
                             <input

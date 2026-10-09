@@ -4,7 +4,7 @@ A local, read-only lake visualization for replaying the previous 24 hours of Dat
 
 **There is no real-time collection.** Import a fixed capture manually, then play, pause, seek, or jump between task events without further workspace requests. A visibly labeled simulated 24-hour capture is available before connecting a workspace.
 
-![Animated preview of T1A Lake showing replaying paper planes and ships, catalog docks, schema piers, and the task inspector](docs/assets/lake-replay.gif)
+![Animated preview of T1A Lake with replaying paper vessels, catalog docks, a pale lighthouse, swimming PondPilot ducks and an 8FDE octopus](docs/assets/lake-replay.gif)
 
 _Recorded from the running app with simulated metadata at 20× replay speed._
 
@@ -15,7 +15,7 @@ _Recorded from the running app with simulated metadata at 20× replay speed._
 - **Paper ships** show mapped table transformations. Tasks with unresolved or multi-input routes remain processing buoys.
 - **A 24-hour replay** supports play, pause, seeking, speed controls, and previous/next task events. Workspace and region filters preserve the harbor layout.
 - **A task inspector and activity list** expose execution state, elapsed time, launch estimates, route evidence, retries, and source details.
-- **A LakeSentry-inspired lighthouse and PondPilot-inspired ducks** add life to the lake and link to their respective sites.
+- **A pale LakeSentry-inspired lighthouse, PondPilot-inspired ducks, and an 8FDE-inspired octopus** link to their respective sites. The ducks and octopus swim continuously throughout replay.
 - **A connected landscape** places catalog docks directly on the shore, with schema piers extending into the water. Forest groves, crop fields, and country roads surround the lake; external-source airports sit farther inland.
 
 The frontend uses React, TypeScript, Three.js, and React Three Fiber. A Python FastAPI backend imports historical Jobs and Unity Catalog metadata and stores fixed replay captures in local SQLite. The included simulated capture makes the app runnable without a Databricks connection.
@@ -90,7 +90,7 @@ Schema piers use up to six visual table modules while retaining every table in t
 
 Navigation reserves water corridors, apron positions, and mooring space from the complete capture. Ships leave the timber fingers before turning; planes cross open water at separate cruise heights. Local visual yielding reduces overlaps at crossings without changing task timestamps or status. Repeated seeks produce the same positions, and stale or failed vessels retain their frozen position. These routes illustrate estimated elapsed time, not measured data transfer or a physical traffic simulation.
 
-A red spiral-striped lighthouse draws on the [LakeSentry logo](https://lakesentry.io/). The green-headed duck flock draws on [PondPilot's Polly logo](https://pondpilot.io/). Clicking either model or its keyboard-accessible label opens the respective homepage in a new tab. The lighthouse scales its shoreline placement with the lake; its beacon and the ducks respect reduced motion. Ducks retain deterministic, quiet replay appearances throughout the full 24 hours and can be hidden through View options → Easter eggs. In the sample capture, seek to about 12:08 Toronto time to see the flock.
+The spiral-striped lighthouse draws on the [LakeSentry logo](https://lakesentry.io/) with pale coral, slate blue, and soft glass colours. The green-headed duck flock draws on [PondPilot's Polly logo](https://pondpilot.io/); the lavender octopus adapts [8FDE's mascot](https://8fde.ai/) with eight curled arms, round teal glasses, and a smile. Clicking a model or its keyboard-accessible label opens the respective homepage in a new tab. The ducks and octopus stay visible throughout the full 24-hour replay, including when tasks are selected or filtered. They swim in separate shoreline lanes kept clear of ship turns, buoys, piers, and vegetation. Swimming follows replay time, pauses with playback, and reproduces the same positions after seeking. Reduced motion keeps both mascots visible in fixed positions. View options → Lake mascots can hide them explicitly.
 
 ## Validate
 

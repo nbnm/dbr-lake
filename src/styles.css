@@ -571,15 +571,19 @@ input[type="checkbox"] {
     border-color 140ms ease;
 }
 .lighthouse-link {
-  color: #002460;
+  color: #5f7188;
   border-color: #d5b4a2;
+}
+.octopus-link {
+  color: #60578f;
+  border-color: #c4bbdc;
 }
 .landmark-link:hover {
   background: #fffdf4;
   border-color: #759b7a;
 }
 .lighthouse-link:hover {
-  border-color: #c96950;
+  border-color: #bfa399;
 }
 .landmark-link:focus-visible {
   outline: 2px solid #327bf6;

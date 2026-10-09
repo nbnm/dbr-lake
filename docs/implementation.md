@@ -13,7 +13,7 @@ The original requirements source is `Databricks_Lake_Simulation_PRD.docx`, versi
 - One plane per explicit ingestion landing destination. Branches share task status and launch estimates without inflating execution counts. Missing mappings remain buoys; configured mappings do not claim observed lineage.
 - A simulated 24-hour capture with repeated hourly workloads, failures, retries, queues, short tasks, multi-input processing, and collection gaps. It stays visibly separate from imported metadata.
 - Play/pause/seek, previous/next task event navigation, date-aware timeline endpoints, speeds through 3600×, filters, searchable activity, camera controls, run links, reduced motion, and the natural lake surface.
-- A shoreline lighthouse inspired by LakeSentry's red striped logo, and a PondPilot-inspired duck flock with green heads, gray bodies, orange bills, and navy eyes. Models and accessible labels open the respective homepages with no opener or referrer. The lighthouse is included in camera framing; duck appearances continue through the final replay hour.
+- A pale coral and slate-blue shoreline lighthouse inspired by LakeSentry, a PondPilot-inspired green-headed duck flock, and an 8FDE-inspired lavender octopus with eight curled tentacles, teal spectacles, and a smile. Models and accessible labels open the respective homepages with no opener or referrer. Both swimming mascots remain visible throughout replay and selection changes. Separate open-water shoreline lanes stay clear of piers, ships, buoys, and vegetation; poses follow absolute replay time and become stationary with reduced motion. The explicit Lake mascots toggle can hide them.
 - Catalog promenades on two continuous banks, with every schema foundation overlapping dry land. Airports are set back from the water, connected by country roads through deterministic forest groves and crop fields. The camera includes the surrounding terrain.
 - Capture-wide navigation reservations for water corridors, runway queues, and offshore moorings. Ship paths clear the timber fingers, aircraft use separate cruise levels, and deterministic local yielding reduces collisions at route crossings. Replay timestamps and task states are unaffected.
 
@@ -25,7 +25,7 @@ Local Python tests verify secret handling, persisted captures, import failure re
 
 The production build completes. The upstream Three.js Clock deprecation and large Three.js bundle warning remain.
 
-Landmark checks verify the LakeSentry and PondPilot destinations from both the model surfaces and HTML links. The mobile view has no horizontal overflow and retains both accessible links. All 37 frontend tests pass, including the complete-day duck schedule, shoreline attachment, corridor clearance, crowded aprons, grouped moorings, dense buoy placement, and deterministic yielding.
+Landmark checks verify the LakeSentry, PondPilot, and 8FDE homepage links. Browser checks cover persistent mascots at the first and final replay hours, task selection, filtering, playback, and reduced motion. All 39 frontend tests pass, including full-day swimming bounds, seek determinism, reduced-motion poses, mascot clearance from ship turns and frozen holding positions, shoreline attachment, crowded aprons, grouped moorings, dense buoys, and deterministic yielding.
 
 ## Limits and next work
 
