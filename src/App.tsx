@@ -424,10 +424,6 @@ export default function App() {
             >
               <Settings2 size={18} />
             </button>
-            <span className="demo-pill">
-              <i />
-              {scene ? replayLabel(scene) : "Loading replay"}
-            </span>
             <div className="avatar">OP</div>
           </div>
         </header>
