@@ -1,10 +1,10 @@
-# T1A Databricks Lake Replay
+# SimLake
 
-A local lake visualization for replaying the previous 24 hours of Databricks job history. Catalogs are docks, schemas are piers, and tables are berths. Paper planes carry external ingestion to each observed destination; paper ships follow table transformations. Unresolved or multi-input routes remain processing buoys.
+SimLake by T1A is a local lake visualization for replaying the previous 24 hours of Databricks job history. Catalogs are docks, schemas are piers, and tables are berths. Paper planes carry external ingestion to each observed destination; paper ships follow table transformations. Unresolved or multi-input routes remain processing buoys.
 
 The lake is the main view. Playback starts at **60×: one minute of history per second of animation**. Navigation, activity, the timeline, and ordinary captions are hidden initially. Use **Replay** to reveal the minute-level timeline and **View options → Show captions** for labels. Click a vessel or dock to open its details. LakeSentry, 8FDE, and PondPilot retain their labels; the Antares shore tower displays its official logo, and SecondStack’s logo is printed on a moored sailboat’s sails.
 
-![Animated preview of T1A Lake: paper vessels, shore docks, forest, fields, LakeSentry lighthouse, swimming PondPilot ducks and 8FDE octopus, Antares skyscraper and SecondStack sailboat](docs/assets/lake-replay.gif)
+![Animated preview of SimLake: paper vessels, shore docks, forest, fields, LakeSentry lighthouse, swimming PondPilot ducks and 8FDE octopus, Antares skyscraper and SecondStack sailboat](docs/assets/lake-replay.gif)
 
 _Recorded from the running app with explicitly simulated metadata and 60× playback. The swimming mascots use an independent ambient clock._
 
@@ -31,7 +31,7 @@ npm run build
 .venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8001
 ```
 
-Open [the lake](http://127.0.0.1:8001/). For frontend development, run `npm run dev` and open port 5173; Vite proxies the API to port 8001.
+Open [SimLake](http://127.0.0.1:8001/). For frontend development, run `npm run dev` and open port 5173; Vite proxies the API to port 8001.
 
 ## Configure one integration workspace
 

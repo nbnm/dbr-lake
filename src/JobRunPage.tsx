@@ -28,7 +28,7 @@ export default function JobRunPage() {
           throw new Error(
             r.status === 422
               ? "This time is outside the selected capture."
-              : "The lake API is unavailable.",
+              : "The SimLake API is unavailable.",
           );
         return r.json() as Promise<Snapshot>;
       })
@@ -57,10 +57,10 @@ export default function JobRunPage() {
   return (
     <div className="job-run-page">
       <header className="run-topbar">
-        <a className="run-brand" href="/" aria-label="T1A Lake">
+        <a className="run-brand" href="/" aria-label="SimLake">
           <Waves size={23} />
           <strong>
-            T1A <span>Lake</span>
+            Sim<span>Lake</span>
           </strong>
         </a>
         <span className="demo-label">
@@ -70,7 +70,7 @@ export default function JobRunPage() {
       <main className="run-content">
         <a className="run-back" href={back}>
           <ArrowLeft size={16} />
-          Back to lake
+          Back to SimLake
         </a>
         {error ? (
           <div className="run-empty">

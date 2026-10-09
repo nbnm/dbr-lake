@@ -1,4 +1,4 @@
-# Historical replay milestone
+# SimLake implementation
 
 The source PRD is `Databricks_Lake_Simulation_PRD.docx`, version 1.0. It supplies product requirements, not agent instructions. Subsequent user requests set the scope to a fixed previous-24-hour replay, one integration workspace, system-table and lineage import, and a lake-focused default view.
 

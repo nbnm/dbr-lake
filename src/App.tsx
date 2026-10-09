@@ -119,7 +119,7 @@ export default function App() {
       .catch((e) => {
         if (e.name !== "AbortError")
           setError(
-            "The lake API is unavailable. Start the FastAPI service, then retry.",
+            "The SimLake API is unavailable. Start the FastAPI service, then retry.",
           );
       });
     return () => controller.abort();
@@ -390,7 +390,7 @@ export default function App() {
             <Menu size={19} />
           </button>
           <a href="/" className="wordmark">
-            lake<span>by T1A</span>
+            SimLake<span>by T1A</span>
           </a>
           <div className="topbar-divider" />
           <div className="account-context">

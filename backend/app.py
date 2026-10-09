@@ -49,7 +49,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         store.close()
         app.state.repository.close()
 
-    app = FastAPI(title="T1A Lake API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="SimLake API", version="0.1.0", lifespan=lifespan)
 
     @app.middleware('http')
     async def local_api_only(request: Request, call_next):
